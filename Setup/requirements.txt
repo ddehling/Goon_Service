@@ -1,0 +1,10 @@
+numpy==1.26.4
+Pillow==11.0.0
+sacn==1.10.0
+zeroconf==0.136.2
+python-osc==1.8.3
+PyOpenGL
+PyYAML
+PyQt5
+sounddevice 
+Scipy
