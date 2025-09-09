@@ -1,321 +1,115 @@
 {
   "strips": [
+  
     {
-    "id": "stair_arc_1",
-    "length": 125,
-    "groups": ["base","top"],
-    "type": "arc",
-    "position": {
-      "start": [0.0, -20.0, -80.0],
-      "end": [0.0, 20.0, -80.0],
-      "arc_degrees": -270,
-      "normal": [0.0, 0.0, 1.0]
-    },
-    "metadata": {
-      "Strip_usage": "Primary",
-      "REC_IP": "192.168.68.255",
-      "Strip_num": 1,
-      "Direction": 1,
-      "Output":1,
-        "Type":"RGB"
-    }
-  },
-    {
-    "id": "stair_arc_2",
-    "length": 175,
-    "groups": ["base","middle"],
-    "type": "arc",
-    "position": {
-      "start": [0.0, -30.0, -90.0],
-      "end": [0.0, 30.0, -90.0],
-      "arc_degrees": -270,
-      "normal": [0.0, 0.0, 1.0]
-    },
-    "metadata": {
-      "Strip_usage": "Primary",
-      "REC_IP": "192.168.68.255",
-      "Strip_num": 2,
-      "Direction": 1,
-      "Output":2,
-        "Type":"RGB"
-    }
-  },
-    {
-    "id": "stair_arc_3",
-    "length": 225,
-    "groups": ["base", "bottom"],
-    "type": "arc",
-    "position": {
-      "start": [0.0, -40.0, -100.0],
-      "end": [0.0, 40.0, -100.0],
-      "arc_degrees": -270,
-      "normal": [0.0, 0.0, 1.0]
-    },
-    "metadata": {
-      "Strip_usage": "Primary",
-      "REC_IP": "192.168.68.255",
-      "Strip_num": 3,
-      "Direction": 1,
-      "Output":3,
-        "Type":"RGB"
-    }
-  },
-    {
-      "id": "spine_1",
-      "length": 136,
-      "groups": ["spine", "left"],
+      "id": "Stem_1",
+      "length": 300,
+      "groups": ["stem"],
       "type": "line",
       "position": {
-        "start": [0.0, 3.0, -7.5],
-        "end": [0.0, 3.0,-100.0]
+        "start": [0.0, -3.0, 0],
+        "end": [0.0, -3.0,100.0]
       },
       "metadata": {
-        "Strip_usaage": "Secondary",
+        "Strip_usage": "Secondary",
+        "REC_IP": "192.168.68.255",
+        "Strip_num": 1,
+        "Direction": 1,
+        "Output":1,
+        "Type":"RGB"
+      }
+    },
+
+        {
+      "id": "Branch_1",
+      "length": 300,
+      "groups": ["branch"],
+      "type": "line",
+      "position": {
+        "start": [0.0, -3.0,100.0],
+        "end": [0.0, -103.0,100.0]
+      },
+      "metadata": {
+        "Strip_usage": "Secondary",
+        "REC_IP": "192.168.68.255",
+        "Strip_num": 2,
+        "Direction": 1,
+        "Output":1,
+        "Type":"RGB"
+      }
+    },
+        {
+      "id": "Stem_2",
+      "length": 300,
+      "groups": ["stem"],
+      "type": "line",
+      "position": {
+        "start": [0.0, 3.0, 0],
+        "end": [0.0, 3.0,100.0]
+      },
+      "metadata": {
+        "Strip_usage": "Secondary",
+        "REC_IP": "192.168.68.255",
+        "Strip_num": 3,
+        "Direction": 1,
+        "Output":2,
+        "Type":"RGB"
+      }
+    },
+
+        {
+      "id": "Branch_2",
+      "length": 300,
+      "groups": ["branch"],
+      "type": "line",
+      "position": {
+        "start": [0.0, 3.0,100.0],
+        "end": [0.0, 103.0,100.0]
+      },
+      "metadata": {
+        "Strip_usage": "Secondary",
         "REC_IP": "192.168.68.255",
         "Strip_num": 4,
         "Direction": 1,
-        "Output":4,
+        "Output":2,
         "Type":"RGB"
       }
-    },
-    {
-      "id": "spine_2",
-      "length": 136,
-      "groups": ["spine", "right"],
+    },    {
+      "id": "Stem_3",
+      "length": 300,
+      "groups": ["stem"],
       "type": "line",
       "position": {
-        "start": [0.0, -3.0, -7.5],
-        "end": [0.0, -3.0,-100.0]
+        "start": [3.0, 0.0, 0],
+        "end": [3.0, 0.0,100.0]
       },
       "metadata": {
-        "Strip_usaage": "Secondary",
+        "Strip_usage": "Secondary",
         "REC_IP": "192.168.68.255",
         "Strip_num": 5,
         "Direction": 1,
-        "Output":5,
+        "Output":3,
+        "Type":"RGB"
+      }
+    },
+
+        {
+      "id": "Branch_3",
+      "length": 300,
+      "groups": ["branch"],
+      "type": "line",
+      "position": {
+        "start": [3.0, 0.0,100.0],
+        "end": [103.0, 0.0,100.0]
+      },
+      "metadata": {
+        "Strip_usage": "Secondary",
+        "REC_IP": "192.168.68.255",
+        "Strip_num": 6,
+        "Direction": 1,
+        "Output":3,
         "Type":"RGB"
       }
     }
-     , 
-    {
-      "id": "head_1",
-      "length": 24,
-      "groups": ["head", "left","brain"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, 0.0],
-        "radius": 5.0,
-        "normal": [0.0, 1.0, 1.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 6,
-        "Direction": -1,
-        "Output":6,
-        "Type":"RGBW3"
-      }
-    },  
-    {
-      "id": "head_2",
-      "length": 24,
-      "groups": ["head", "right","brain"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, 0.0],
-        "radius": 5.0,
-        "normal": [0.0, -1.0, 1],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 7,
-        "Output":6,
-        "Direction": -1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-      "id": "head_3",
-      "length": 24,
-      "groups": ["head", "right","brain"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, 0.0],
-        "radius": 5.0,
-        "normal": [0.0, -1.0, 0],
-        "start_angle": 0.0
-
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 8,
-        "Output":6,
-        "Direction": -1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-      "id": "head_4",
-      "length": 24,
-      "groups": ["head", "right","brain"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, 0.0],
-        "radius": 5.0,
-        "normal": [0.0, 0.0, 1],
-        "start_angle": 0.0
-
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 9,
-        "Output":6,
-        "Direction": -1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-      "id": "left_ear_1",
-      "length": 16,
-      "groups": ["ear", "left"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 10.0, 0.0],
-        "radius": 4.0,
-        "normal": [0.0, 1.0, 0.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Secondary",      
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 10,
-        "Output":6,
-        "Direction": 1,
-        "Type":"RGBW3"
-      }
-    },  {
-      "id": "right_ear_1",
-      "length": 16,
-      "groups": ["ear", "right"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, -10.0, 0.0],
-        "radius": 4.0,
-        "normal": [0.0, -1.0, 0.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Secondary",      
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 11,
-        "Output":6,
-        "Direction": 1,
-        "Type":"RGBW3"
-      }
-    },  {
-      "id": "heart_1",
-      "length": 24,
-      "groups": ["heart", "right","circle"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, -50.0],
-        "radius": 8.0,
-        "normal": [0.0, 1.0, 1.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Secondary",      
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 12,
-        "Output":7,
-        "Direction": 1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-      "id": "heart_2",
-      "length": 24,
-      "groups": ["heart", "left","circle"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, -50.0],
-        "radius": 5.0,
-        "normal": [0.0, -1.0, 1.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 13,
-        "Output":7,
-        "Direction": -1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-      "id": "heart_3",
-      "length": 24,
-      "groups": ["heart", "left","circle"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, -50.0],
-        "radius": 5.0,
-        "normal": [0.0, 0.0, 1.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 14,
-        "Output":7,
-        "Direction": -1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-      "id": "heart_4",
-      "length": 24,
-      "groups": ["heart", "right","circle"],
-      "type": "circle",
-      "position": {
-        "center": [0.0, 0.0, -50.0],
-        "radius": 5.0,
-        "normal": [1.0, -1.0, 1.0],
-        "start_angle": 0.0
-      },
-      "metadata": {
-        "Strip_usaage": "Primary",
-        "REC_IP": "192.168.68.255",
-        "Strip_num": 15,
-        "Output":7,
-        "Direction": -1,
-        "Type":"RGBW3"
-      }
-    },
-    {
-    "id": "Spots",
-    "length": 6,
-    "groups": ["spots"],
-    "type": "arc",
-    "position": {
-      "start": [0.0, -40.0, -100.0],
-      "end": [0.0, 40.0, -100.0],
-      "arc_degrees": 270,
-      "normal": [0.0, 0.0, 1.0]
-    },
-    "metadata": {
-      "Strip_usage": "Primary",
-      "REC_IP": "192.168.68.255",
-      "Strip_num": 16,
-      "Output":8,
-      "Direction": 1,
-        "Type":"DMX"
-    }
-  }
   ]
 }
