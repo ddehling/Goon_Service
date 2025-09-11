@@ -177,7 +177,7 @@ def GS_blood_flow(instate, outstate):
         # Initialize dots for this strip if needed
         if strip_id not in buffers.blood_flow_dots:
             num_white_dots = 3
-            num_red_dots = 16
+            num_red_dots = 8
             
             dots = []
             # White dots (slower)
@@ -210,7 +210,7 @@ def GS_blood_flow(instate, outstate):
         strip_data['last_time'] = current_time
         
         # Fade trails over time - fade value (brightness) and saturation
-        trail_fade_rate = 0.35  # Per second (lower = longer trails)
+        trail_fade_rate = 0.25  # Per second (lower = longer trails)
         fade_factor = trail_fade_rate ** dt
         trail_buffer[:, 2] *= fade_factor  # Fade value (brightness)
         trail_buffer[:, 1] *= (fade_factor ** 0.5)  # Fade saturation more slowly
@@ -449,10 +449,10 @@ def GS_tingles(instate, outstate):
         time_since_spawn = current_time - buffers.tingles_last_spawn[strip_id]
         spawn_probability = dot_spawn_rate * time_since_spawn
         
-        
+        active_mask = (current_time - dot_buffer[:, 3]) < dot_fade_time
         # Find an inactive pixel (one that has faded out)
         for n in range(dot_spawn_num):
-            active_mask = (current_time - dot_buffer[:, 3]) < dot_fade_time
+            
             
             inactive_pixels = np.where(~active_mask)[0]
             
@@ -475,7 +475,7 @@ def GS_tingles(instate, outstate):
                 buffers.tingles_last_spawn[strip_id] = current_time
         
         # Generate per-frame low-intensity noise
-        noise_intensity = 0.1  # Low intensity
+        noise_intensity = 0.3  # Low intensity
         noise_r = np.random.uniform(0, noise_intensity, strip_length)
         noise_g = np.random.uniform(0, noise_intensity, strip_length) 
         noise_b = np.random.uniform(0, noise_intensity, strip_length)
