@@ -24,22 +24,20 @@ def test_device_access(device_id):
     except Exception as e:
         return False
 
-def find_system_audio_device():
-    """Find the system audio output device with proper testing"""
+def find_audio_device():
+    """Find available audio input device on Raspberry Pi"""
     devices = sd.query_devices()
     
-    # Common names for system audio capture devices
-    system_audio_patterns = [
-        'stereo mix', 'what u hear', 'wave out mix', 'sum', 
-        'loopback', 'wasapi', 'speakers', 'headphones',
-        'primary sound capture', 'wave', 'realtek'
+    # Common names for Raspberry Pi audio devices
+    pi_audio_patterns = [
+        'usb', 'card', 'alsa', 'bcm', 'headphones', 'analog',
+        'pulse', 'default', 'sysdefault', 'hw:', 'plughw:'
     ]
     
-    print("\nSearching for system audio capture device...")
+    print("\nSearching for audio input device...")
     print("Available input devices:")
     
     working_candidates = []
-    failed_candidates = []
     
     for i, device in enumerate(devices):
         if device['max_input_channels'] > 0:
@@ -49,101 +47,68 @@ def find_system_audio_device():
             # Test if device actually works
             if test_device_access(i):
                 status = "✓ Working"
-                # Check if this device matches system audio patterns
-                for pattern in system_audio_patterns:
-                    if pattern in device_name_lower:
-                        working_candidates.append((i, device, pattern))
-                        print(f"    ^ System audio device (matches '{pattern}') - {status}")
-                        break
-                else:
-                    print(f"    {status}")
+                working_candidates.append((i, device))
+                print(f"    {status}")
             else:
                 status = "✗ Not accessible"
                 print(f"    {status}")
-                # Still add to failed candidates for reference
-                for pattern in system_audio_patterns:
-                    if pattern in device_name_lower:
-                        failed_candidates.append((i, device, pattern))
-                        break
     
-    # Try working candidates first
+    # Use first working device
     if working_candidates:
-        # Prefer Stereo Mix or WASAPI loopback if available
-        for device_id, device_info, pattern in working_candidates:
-            if 'stereo mix' in pattern or 'loopback' in pattern:
-                print(f"\nSelected: {device_info['name']} (ID: {device_id})")
-                return device_id
-        
-        # Otherwise, use the first working candidate
-        device_id, device_info, pattern = working_candidates[0]
+        device_id, device_info = working_candidates[0]
         print(f"\nSelected: {device_info['name']} (ID: {device_id})")
         return device_id
     
-    # If no working system audio devices, show what we found but couldn't access
-    if failed_candidates:
-        print(f"\nFound system audio devices but they're not accessible:")
-        for device_id, device_info, pattern in failed_candidates:
-            print(f"  - {device_info['name']} (ID: {device_id})")
-    
     print("\n" + "="*60)
-    print("NO WORKING SYSTEM AUDIO CAPTURE DEVICE FOUND")
+    print("NO WORKING AUDIO INPUT DEVICE FOUND")
     print("="*60)
-    print("\nTo monitor system audio, you need one of these solutions:")
-    print("\n1. ENABLE STEREO MIX (Windows built-in):")
-    print("   - Right-click sound icon → Open Sound settings")
-    print("   - Click 'Sound Control Panel'")
-    print("   - Recording tab → Right-click → 'Show Disabled Devices'")
-    print("   - Right-click 'Stereo Mix' → Enable")
-    print("   - Right-click 'Stereo Mix' → Set as Default Device")
+    print("\nTo use audio monitoring on Raspberry Pi:")
+    print("\n1. Connect USB microphone or audio interface")
+    print("2. Enable audio: sudo raspi-config → Advanced Options → Audio")
+    print("3. Check ALSA devices: arecord -l")
+    print("4. Install audio packages: sudo apt install alsa-utils pulseaudio")
     
-    print("\n2. INSTALL VB-AUDIO VIRTUAL CABLE:")
-    print("   - Download from: https://vb-audio.com/Cable/")
-    print("   - Install and restart")
-    print("   - Set 'CABLE Output' as your default playback device")
-    print("   - This script will use 'CABLE Input' to monitor")
+    return None
+
+def find_vlc_path():
+    """Find VLC executable on Raspberry Pi"""
+    possible_paths = [
+        "/usr/bin/vlc",
+        "/usr/local/bin/vlc",
+        "/snap/bin/vlc"
+    ]
     
-    print("\n3. USE VOICEMEETER (Advanced):")
-    print("   - Download from: https://vb-audio.com/Voicemeeter/")
-    print("   - Provides virtual audio mixing with loopback")
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
     
-    print("\nWould you like to try using the default microphone instead? (y/n)")
-    
-    # Let user decide to continue with microphone or exit
+    # Try which command
     try:
-        choice = input().lower().strip()
-        if choice in ['y', 'yes']:
-            default_device = sd.default.device[0]
-            if test_device_access(default_device):
-                print(f"Using default microphone: {devices[default_device]['name']}")
-                return default_device
-            else:
-                print("Default microphone also not accessible.")
-                return None
-        else:
-            return None
+        result = subprocess.run(['which', 'vlc'], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
     except:
-        return None
+        pass
+    
+    return None
 
 def launch_video_vlc_with_restart(video_path):
     """Launch VLC with HTTP interface, pause after 20s, then restart from beginning"""
     vlc_process = None
     
     try:
-        # VLC executable path
-        vlc_path = r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+        # Find VLC executable
+        vlc_path = find_vlc_path()
         
-        if not os.path.exists(vlc_path):
-            vlc_path = r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"
-            
-        if not os.path.exists(vlc_path):
-            print("VLC not found. Please check your VLC installation path.")
+        if not vlc_path:
+            print("VLC not found. Install with: sudo apt install vlc")
             return False
             
         if not os.path.exists(video_path):
             print(f"Video file not found: {video_path}")
             return False
             
-        # Launch VLC with HTTP interface enabled, fullscreen, and password
+        # Launch VLC with HTTP interface enabled
         password = "vlcpassword"
         port = "8080"
         
@@ -154,10 +119,17 @@ def launch_video_vlc_with_restart(video_path):
             "--http-port", port,
             "--fullscreen",
             "--extraintf", "rc",
+            "--no-qt-privacy-ask",  # Skip privacy dialog
+            "--no-video-title-show",  # Don't show filename
             video_path
         ]
         
-        vlc_process = subprocess.Popen(vlc_args)
+        # Set display for GUI applications
+        env = os.environ.copy()
+        if 'DISPLAY' not in env:
+            env['DISPLAY'] = ':0'
+        
+        vlc_process = subprocess.Popen(vlc_args, env=env)
         print(f"Launching VLC with HTTP interface on port {port}")
         print("Press Ctrl+C to close VLC at any time")
         
@@ -174,7 +146,10 @@ def launch_video_vlc_with_restart(video_path):
         # Pause the video
         print("Pausing video for 10 seconds")
         pause_url = f"http://localhost:{port}/requests/status.xml?command=pl_pause"
-        requests.get(pause_url, auth=auth)
+        try:
+            requests.get(pause_url, auth=auth, timeout=5)
+        except requests.exceptions.RequestException as e:
+            print(f"Warning: Could not pause video via HTTP: {e}")
         
         # Wait 10 seconds while paused
         time.sleep(10)
@@ -182,11 +157,14 @@ def launch_video_vlc_with_restart(video_path):
         # Restart from beginning (seek to position 0)
         print("Restarting video from beginning")
         restart_url = f"http://localhost:{port}/requests/status.xml?command=seek&val=0"
-        requests.get(restart_url, auth=auth)
-        
-        # Make sure it's playing
-        play_url = f"http://localhost:{port}/requests/status.xml?command=pl_play"
-        requests.get(play_url, auth=auth)
+        try:
+            requests.get(restart_url, auth=auth, timeout=5)
+            
+            # Make sure it's playing
+            play_url = f"http://localhost:{port}/requests/status.xml?command=pl_play"
+            requests.get(play_url, auth=auth, timeout=5)
+        except requests.exceptions.RequestException as e:
+            print(f"Warning: Could not restart video via HTTP: {e}")
         
         # Keep the script running so VLC stays open
         print("Video restarted. Press Ctrl+C to close VLC.")
@@ -232,7 +210,7 @@ def run_video_with_audio_monitoring(video_path):
     """Run video with audio level monitoring"""
     
     # Find working audio device
-    device_id = find_system_audio_device()
+    device_id = find_audio_device()
     
     if device_id is None:
         print("\nCannot proceed without a working audio device.")
@@ -276,9 +254,10 @@ def run_video_with_audio_monitoring(video_path):
     return success
 
 if __name__ == "__main__":
-    video_file = r"C:\Users\diete\Desktop\devel-local\BM.mp4"
+    # Update path for Raspberry Pi - adjust as needed
+    video_file = "/home/dieter/Videos/DeadlyPrey1988vhsrip_TryFile.com_.avi"
     
-    print("Starting video with audio monitoring...")
+    print("Starting video with audio monitoring on Raspberry Pi...")
     print("Audio levels will be printed every second.")
     print("Press Ctrl+C to stop at any time.")
     print("-" * 50)
