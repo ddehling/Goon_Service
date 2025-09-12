@@ -708,29 +708,36 @@ def GS_rage_lightning(instate, outstate):
         
         # Apply additional base noise to EVERY pixel on EVERY strip
         # This adds the consistent 20-40% intensity noise across all pixels
-        for i in range(strip_length):
-            # Get current pixel values
-            curr_r, curr_g, curr_b, curr_a = buffer[i]
-            
-            # Generate random color for noise
-            noise_color = np.random.choice(list(instate['colors'].keys()))
-            h, s, v = instate['colors'][noise_color]
-            noise_r, noise_g, noise_b = hsv_to_rgb(h, s, v)
-            
-            # Calculate noise intensity (20-40% range)
-            noise_intensity = instate['base_noise_min'] + np.random.random() * (instate['base_noise_max'] - instate['base_noise_min'])
-            
-            # Increase noise with rage level
-            noise_intensity *= (1.0 + rage_level * 0.5)
-            noise_intensity = min(0.6, noise_intensity)  # Cap at 60% for high rage
-            
-            # Apply noise with additive blending
-            new_r = min(1.0, curr_r + (noise_r * noise_intensity))
-            new_g = min(1.0, curr_g + (noise_g * noise_intensity))
-            new_b = min(1.0, curr_b + (noise_b * noise_intensity))
-            new_a = max(curr_a, noise_intensity)
-            
-            buffer[i] = [new_r, new_g, new_b, new_a]
+        curr_rgba = buffer[:]
+        
+        # Generate random colors for each pixel
+        color_names = list(instate['colors'].keys())
+        random_color_indices = np.random.choice(len(color_names), strip_length)
+        
+        # Pre-convert all colors to RGB
+        color_rgb_array = np.array([hsv_to_rgb(*instate['colors'][color]) for color in color_names])
+        
+        # Select RGB values for each pixel based on random indices
+        noise_rgb = color_rgb_array[random_color_indices]  # Shape: (strip_length, 3)
+        
+        # Generate noise intensities for all pixels at once
+        noise_base = np.random.uniform(
+            instate['base_noise_min'], 
+            instate['base_noise_max'], 
+            strip_length
+        )
+        
+        # Apply rage level scaling and capping
+        noise_intensities = noise_base * (1.0 + rage_level * 0.5)
+        noise_intensities = np.minimum(noise_intensities, 0.6)
+        
+        # Apply noise with additive blending
+        new_rgb = np.minimum(1.0, curr_rgba[:, :3] + (noise_rgb * noise_intensities[:, np.newaxis]))
+        new_alpha = np.maximum(curr_rgba[:, 3], noise_intensities)
+        
+        # Update buffer
+        buffer[:, :3] = new_rgb
+        buffer[:, 3] = new_alpha
             
 def GS_curious_playful(instate, outstate):
     """
@@ -1045,13 +1052,6 @@ def GS_curious_playful(instate, outstate):
                 rgb_buffer[sparkle_indices, 3] = np.minimum(1.0, rgb_buffer[sparkle_indices, 3] + 0.3)
             
             # Copy from numpy array back to buffer
-            for pixel in range(strip_length):
-                if rgb_buffer[pixel, 3] > 0:
-                    buffer[pixel] = [
-                        rgb_buffer[pixel, 0], 
-                        rgb_buffer[pixel, 1], 
-                        rgb_buffer[pixel, 2], 
-                        rgb_buffer[pixel, 3]
-                    ]
-                else:
-                    buffer[pixel] = [0, 0, 0, 0]
+            mask = rgb_buffer[:, 3] > 0
+            buffer[:] = 0  # Clear the original buffer
+            buffer[mask] = rgb_buffer[mask]
