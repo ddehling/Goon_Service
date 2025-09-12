@@ -1,7 +1,7 @@
 import threading
 import time
 import sounddevice as sd
-from corefunctions.soundinput import MicrophoneAnalyzer
+from soundinput import MicrophoneAnalyzer
 
 class AudioAnalysisController:
     def __init__(self, device_id=None, sample_rate=48000, block_size=1024, channels=1):
