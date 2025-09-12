@@ -12,18 +12,19 @@ import os
 from typing import List, Optional
 
 class DMXController:
-    def __init__(self, port: str = None, baudrate: int = 250000):
+    def __init__(self, port: str = "/dev/ttyUSB0", baudrate: int = 250000):
         """
         Initialize DMX controller
         
         Args:
-            port: Serial port (e.g., 'COM3' on Windows, '/dev/ttyUSB0' on Linux)
+            port: Serial port (defaults to '/dev/ttyUSB0' for Linux)
             baudrate: Serial communication speed (typically 250000 for DMX)
         """
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None
         self.dmx_data = [0] * 512  # DMX universe (512 channels)
+
         
     def connect(self, port: str = None) -> bool:
         """Connect to the DMX interface"""
@@ -206,22 +207,15 @@ if __name__ == "__main__":
     print("Available serial ports:", available_ports)
     print()
     
-    if not available_ports:
-        print("No serial ports found!")
-        print("Make sure your DSD Tech USB-DMX interface is connected.")
-        print("You might need to run: sudo chmod 666 /dev/ttyUSB* or add your user to the dialout group")
-        print("To add user to dialout group: sudo usermod -a -G dialout $USER (then logout/login)")
-        exit(1)
-    
-    # Initialize controller
+    # Initialize controller with default /dev/ttyUSB0
     dmx = DMXController()
     
-    # Try to connect
-    if len(available_ports) == 1:
-        port = available_ports[0]
-        print(f"Using port: {port}")
-    else:
-        print("Available ports:")
+    # Check if default port exists, otherwise prompt for selection
+    if "/dev/ttyUSB0" in available_ports or os.path.exists("/dev/ttyUSB0"):
+        port = "/dev/ttyUSB0"
+        print(f"Using default port: {port}")
+    elif available_ports:
+        print("Default /dev/ttyUSB0 not found. Available ports:")
         for i, p in enumerate(available_ports):
             print(f"  {i}: {p}")
         try:
@@ -230,6 +224,12 @@ if __name__ == "__main__":
         except (ValueError, IndexError):
             port = available_ports[0]
             print(f"Invalid choice, using: {port}")
+    else:
+        print("No serial ports found!")
+        print("Make sure your DSD Tech USB-DMX interface is connected.")
+        print("You might need to run: sudo chmod 666 /dev/ttyUSB* or add your user to the dialout group")
+        print("To add user to dialout group: sudo usermod -a -G dialout $USER (then logout/login)")
+        exit(1)
     
     if dmx.connect(port):
         try:
