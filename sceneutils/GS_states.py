@@ -475,7 +475,7 @@ def GS_tingles(instate, outstate):
                 buffers.tingles_last_spawn[strip_id] = current_time
         
         # Generate per-frame low-intensity noise
-        noise_intensity = 0.3  # Low intensity
+        noise_intensity = 0.1  # Low intensity
         noise_r = np.random.uniform(0, noise_intensity, strip_length)
         noise_g = np.random.uniform(0, noise_intensity, strip_length) 
         noise_b = np.random.uniform(0, noise_intensity, strip_length)
