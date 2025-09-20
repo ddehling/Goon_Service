@@ -85,32 +85,38 @@ class DMXController:
         
         try:
             # Enttec DMX USB Pro packet format
+            packet = bytearray([])
+            
             # Start delimiter
-            packet = bytearray([0x7E])
+            packet.append(0x7E)
             
             # Label (6 = Send DMX packet)
             packet.append(0x06)
             
-            # Data length (LSB, MSB)
-            data_length = len(self.dmx_data) + 1  # +1 for start code
+            # Data length (LSB, MSB) - 513 bytes (1 start code + 512 data)
+            data_length = 513
             packet.extend(struct.pack('<H', data_length))
             
             # DMX start code (0 for standard DMX)
             packet.append(0x00)
             
-            # DMX data
+            # DMX data (512 channels)
             packet.extend(self.dmx_data)
             
             # End delimiter
             packet.append(0xE7)
             
+        
             # Send packet
-            self.serial_conn.write(packet)
-            return True
+            bytes_written = self.serial_conn.write(packet)
+            self.serial_conn.flush()  # Ensure data is sent immediately
+            
             
         except Exception as e:
             print(f"Error sending DMX packet: {e}")
             return False
+
+
     
     def send_continuous(self, refresh_rate: float = 30.0):
         """
@@ -233,37 +239,17 @@ if __name__ == "__main__":
     
     if dmx.connect(port):
         try:
-            # Example: Control an RGB light on channels 1-3
-            print("Testing RGB light control...")
-            
-            # Red
-            print("Red...")
-            dmx.set_channels(1, [255, 0, 0])
-            dmx.send_dmx_packet()
-            time.sleep(1)
-            
-            # Green  
-            print("Green...")
-            dmx.set_channels(1, [0, 255, 0])
-            dmx.send_dmx_packet()
-            time.sleep(1)
-            
-            # Blue
-            print("Blue...")
-            dmx.set_channels(1, [0, 0, 255])
-            dmx.send_dmx_packet()
-            time.sleep(1)
-            
+            #dmx.send_continuous()
+            n=5
+            m=100
             # White
-            print("White...")
-            dmx.set_channels(1, [255, 255, 255])
-            dmx.send_dmx_packet()
-            time.sleep(1)
+            for n in range(11):
+                print([n,m])
+                dmx.set_channel(n+1, m)
+                dmx.send_dmx_packet()
+                time.sleep(5)
             
-            # Off
-            print("Off...")
-            dmx.set_channels(1, [0, 0, 0])
-            dmx.send_dmx_packet()
+
             
             print("Test complete!")
             
