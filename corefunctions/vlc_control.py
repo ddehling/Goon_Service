@@ -913,6 +913,66 @@ class VLCController:
             print(f"Error during playback sequence: {e}")
             return False
 
+    def set_volume(self, volume):
+        """
+        Set the volume level
+        
+        Args:
+            volume (int): Volume level (0-100 for percentage, or 0-512 for VLC's internal range)
+                         VLC's internal range: 0=mute, 256=100%, 512=200%
+                         Percentage range: 0=mute, 100=100%
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not isinstance(volume, (int, float)):
+            print("Volume must be a number")
+            return False
+            
+        # Convert to int if float
+        volume = int(volume)
+        
+        # Validate range
+        if volume < 0:
+            print("Volume cannot be negative, setting to 0")
+            volume = 0
+        elif volume > 512:
+            print("Volume too high, setting to 512 (200%)")
+            volume = 512
+            
+        # Determine if using percentage (0-100) or VLC internal range (0-512)
+        if volume <= 100:
+            print(f"Setting volume to {volume}%")
+        else:
+            percentage = round((volume / 256) * 100)
+            print(f"Setting volume to {volume} ({percentage}%)")
+            
+        return self._send_command(f"volume&val={volume}")
+    
+    def mute(self):
+        """
+        Mute the audio
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        print("Muting audio")
+        return self.set_volume(0)
+    
+    def unmute(self, volume=256):
+        """
+        Unmute the audio and set to specified volume
+        
+        Args:
+            volume (int): Volume to set when unmuting (default: 256 = 100%)
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        print(f"Unmuting audio to volume {volume}")
+        return self.set_volume(volume)
+
+
 # Example usage and testing
 if __name__ == "__main__":
     # Example with multiple video files - UPDATE THESE PATHS
@@ -939,6 +999,7 @@ if __name__ == "__main__":
         
         # Launch VLC with progressive fallback method
         if vlc.launch_with_fallback(disable_keyboard=True):
+            vlc.set_volume(512)
             print("\nVLC launched successfully!")
             
             # Wait and then test file switching
