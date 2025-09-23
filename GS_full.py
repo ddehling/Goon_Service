@@ -96,6 +96,24 @@ class EnvironmentalSystem:
         
         print(f"Switched to video {vidnum + 1} - Fullscreen enforced")
 
+    def schedule_video_events(self, vidnum):
+        """Schedule unique events based on the video number"""
+        # Clear any existing scheduled events
+        self.scheduler.cancel_all_events()
+        
+        if vidnum == 0:  # First video events
+            self.scheduler.schedule_event(0, 15, GS_rage_lightning)
+            #self.scheduler.schedule_event(3, 8, GS_calm_blue)
+            #self.scheduler.schedule_event(12, 18, GS_intense_red)
+            print("Scheduled events for Video 1 (Deadly Prey)")
+            
+        elif vidnum == 1:  # Second video events
+            #self.scheduler.schedule_event(0, 10, GS_horror_flicker)
+            #self.scheduler.schedule_event(5, 12, GS_dark_atmosphere)
+            self.scheduler.schedule_event(15, 20, GS_rage_lightning)
+            print("Scheduled events for Video 2 (Midnight Meat Train)")
+            
+
 # Main execution
 if __name__ == "__main__":
     scheduler = EventScheduler()
@@ -116,9 +134,11 @@ if __name__ == "__main__":
         while True:
             # Switch to video and ensure fullscreen
             env_system.switch_to_video(vidnum)
+
             loopstart = time.time()
-            env_system.scheduler.schedule_event(0, 15, GS_rage_lightning)
-            
+            #env_system.scheduler.schedule_event(0, 15, GS_rage_lightning)
+            env_system.schedule_video_events(vidnum)
+
             video_finished = False  # Flag to break out of inner loop
             
             while True:
