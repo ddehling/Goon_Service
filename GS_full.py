@@ -84,13 +84,17 @@ class EnvironmentalSystem:
             QApplication.instance().processEvents()
 
     def switch_to_video(self, vidnum):
-        """Switch to video and let VLC maintain fullscreen state"""
+        """Switch to video and ensure fullscreen state"""
         self.VLC.switch_to_file(vidnum)
         # Give VLC a moment to load the file
-        time.sleep(0.5)
-        # VLC should automatically maintain fullscreen state when switching files
-        # so we don't need to call set_fullscreen here
-        print(f"Switched to video {vidnum + 1}")
+        time.sleep(1.5)
+        
+        # Ensure fullscreen - toggle twice to guarantee fullscreen state
+        self.VLC._send_command("fullscreen")
+        time.sleep(0.3)
+        self.VLC._send_command("fullscreen")
+        
+        print(f"Switched to video {vidnum + 1} - Fullscreen enforced")
 
 # Main execution
 if __name__ == "__main__":

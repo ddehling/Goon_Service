@@ -155,9 +155,13 @@ class VLCController:
             self.close()
             time.sleep(1)  # Brief pause to ensure clean shutdown
         
-        # Create launch arguments with new file
+        # Create launch arguments with new file - ensure fullscreen is in args
         vlc_args = self.last_launch_template.copy()
         vlc_args[-1] = self.active_file  # Replace placeholder with actual file
+        
+        # Make sure --fullscreen is in the args if it's not already
+        if "--fullscreen" not in vlc_args:
+            vlc_args.insert(-1, "--fullscreen")
         
         # Relaunch with new file
         success = self._launch_with_args(vlc_args)
