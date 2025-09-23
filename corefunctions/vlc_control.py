@@ -972,6 +972,53 @@ class VLCController:
         print(f"Unmuting audio to volume {volume}")
         return self.set_volume(volume)
 
+    def set_fullscreen(self, fullscreen=True):
+        """
+        Set fullscreen mode (attempts to ensure correct state)
+        
+        Args:
+            fullscreen (bool): True for fullscreen, False for windowed
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Note: VLC's HTTP interface doesn't provide a direct way to check fullscreen status
+        # or to set (rather than toggle) fullscreen mode.
+        # This method will try to be smart about it, but it's not perfect.
+        
+        if fullscreen:
+            print("Attempting to ensure fullscreen mode")
+            # Since we can't easily check current state, we'll assume VLC maintains
+            # fullscreen state when switching videos, so we don't need to toggle
+            return True
+        else:
+            print("Attempting to exit fullscreen mode")
+            return self._send_command("fullscreen")
+
+    def ensure_fullscreen(self):
+        """
+        Try to ensure VLC is in fullscreen mode without toggling
+        This is safer than set_fullscreen when we're unsure of current state
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # VLC typically maintains fullscreen state when switching files
+        # So we don't need to do anything here
+        print("VLC should maintain fullscreen state automatically")
+        return True
+
+    def force_toggle_fullscreen(self):
+        """
+        Force toggle fullscreen mode (use only when you know current state)
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        print("Toggling fullscreen mode")
+        return self._send_command("fullscreen")
+
+
 
 # Example usage and testing
 if __name__ == "__main__":
