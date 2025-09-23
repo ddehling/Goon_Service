@@ -574,9 +574,12 @@ class VLCController:
         
         return success
 
-    def launch_with_fallback(self, fullscreen=True, wait_for_load=5, disable_keyboard=True):
+    def launch_with_fallback(self, fullscreen=True, wait_for_load=5, disable_keyboard=True, autoplay=True):
         """
         Launch VLC trying different methods progressively
+        
+        Args:
+            autoplay (bool): Whether to start playing immediately
         
         Returns:
             bool: True if successful, False otherwise
@@ -584,13 +587,15 @@ class VLCController:
         # Try 1: Minimal launch (most compatible)
         print("Step 1: Trying minimal VLC launch (no keyboard disabling)...")
         if self.launch_minimal(fullscreen=fullscreen):
-            time.sleep(2)
+            time.sleep(.2)
             if self.is_running():
                 # Test HTTP interface
                 for attempt in range(5):
                     if self._send_command("volume&val=100"):
                         print("Minimal launch successful - HTTP interface working")
-                        print("NOTE: Keyboard shortcuts are still active")
+                        if not autoplay:
+                            print("Pausing playback as requested")
+                            self.pause()
                         return True
                     time.sleep(1)
                 print("Minimal launch succeeded but HTTP interface not responding")

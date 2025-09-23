@@ -106,7 +106,7 @@ if __name__ == "__main__":
     numvid = len(vidlength)
     
     try:
-        env_system.VLC.launch_with_fallback(disable_keyboard=True)
+        env_system.VLC.launch_with_fallback(disable_keyboard=True, autoplay=False)
         env_system.VLC.set_volume(512)
         
         while True:
