@@ -694,8 +694,12 @@ def GS_curious_playful(instate, outstate):
     
     # Apply fade-out if the generator is ending
     remaining_time = instate['duration'] - instate['elapsed_time']
-    if remaining_time < 10.0:
-        fade_alpha = remaining_time / 10.0
+    if instate['elapsed_time']<5:
+        fade_alpha = instate['elapsed_time'] / 5.0
+        fade_alpha = max(0.0, fade_alpha)
+        buffers.generator_alphas[name] = fade_alpha * curious_level
+    if remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
         fade_alpha = max(0.0, fade_alpha)
         buffers.generator_alphas[name] = fade_alpha * curious_level
     
