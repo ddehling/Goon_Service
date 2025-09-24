@@ -634,323 +634,96 @@ def GS_rage_lightning(instate, outstate):
         buffer[:, :3] = new_rgb
         buffer[:, 3] = new_alpha
             
+
+
+
 def GS_curious_playful(instate, outstate):
     """
-    Generator function that creates a curious and playful-themed pattern across all strips.
-    
-    Features:
-    1. Global alpha controlled by outstate['control_curious'] value
-    2. Vibrant, saturated color palette with blues, greens, reds, oranges, purples, and whites
-    3. Moving color regions that create dynamic patterns
-    4. Fast movement with playful characteristics
-    
-    Uses HSV colorspace for color generation and blending.
+    Simplified curious/playful pattern with moving colored regions.
+    Creates vibrant, moving color waves across strips.
     """
     name = 'curious_playful'
     buffers = outstate['buffers']
-    strip_manager = buffers.strip_manager
 
     if instate['count'] == 0:
-        # Register our generator on first run
         buffers.register_generator(name)
-        
-        # Initialize parameters
-        instate['color_regions'] = {}    # Track color regions per strip
-        instate['color_shift'] = 0.0     # Global color shift for variation
-        instate['spots_state'] = {}   
-        
-        # Color palette (HSV values) - more saturated colors
-        instate['colors'] = {
-            'bright_blue': [0.6, 0.7, 0.95],      # Bright blue
-            'vibrant_green': [0.3, 0.8, 0.9],     # Vibrant green
-            'bright_red': [0.0, 0.8, 0.95],       # Bright red
-            'vibrant_orange': [0.08, 0.9, 0.95],  # Vibrant orange
-            'rich_purple': [0.8, 0.8, 0.9],       # Rich purple
-            'hot_pink': [0.9, 0.75, 0.95],        # Hot pink
-            'turquoise': [0.45, 0.8, 0.95],       # Turquoise
-            'bright_yellow': [0.15, 0.8, 0.95],   # Bright yellow
-            'pure_white': [0.0, 0.0, 1.0]         # Pure white
-        }
-        
-        # Motion parameters
-        instate['region_speed_multiplier'] = 1.0  # Global speed control
-        
         return
 
     if instate['count'] == -1:
-        # Cleanup when pattern is ending
         buffers.generator_alphas[name] = 0
         return
 
-    # Get curious level from outstate (default to 0)
-    curious_level = 1
+    # Calculate fade in/out
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
     
-    # Apply alpha level to the generator
-    buffers.generator_alphas[name] = curious_level
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
     
-    # Skip rendering if alpha is too low
-    if curious_level < 0.01:
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
         return
     
-    # Apply fade-out if the generator is ending
-    remaining_time = instate['duration'] - instate['elapsed_time']
-    if instate['elapsed_time']<5:
-        fade_alpha = instate['elapsed_time'] / 5.0
-        fade_alpha = max(0.0, fade_alpha)
-        buffers.generator_alphas[name] = fade_alpha * curious_level
-    if remaining_time < 5.0:
-        fade_alpha = remaining_time / 5.0
-        fade_alpha = max(0.0, fade_alpha)
-        buffers.generator_alphas[name] = fade_alpha * curious_level
-    
-    # Get delta time for animation calculations
-    delta_time = outstate['current_time'] - outstate['last_time']
-    
-    # Update global color shift for variation - slow cycle through hues
-    instate['color_shift'] = (instate['color_shift'] + 0.05 * delta_time) % 1.0
-    
-    # Adjust global region speed based on curious level - more curious = faster
-    instate['region_speed_multiplier'] = 1.0 + curious_level  # 1.0-2.0x speed range
-    
-    # Get all buffers for this generator
+    current_time = outstate['current_time']
     pattern_buffers = buffers.get_all_buffers(name)
     
-    # Process each buffer based on strip type
-    for strip_id, buffer in pattern_buffers.items():
-        # Skip if strip doesn't exist in manager
-        if strip_id not in strip_manager.strips:
-            continue
-            
-        strip = strip_manager.get_strip(strip_id)
-        strip_length = len(buffer)
-            
+    # Color palette (HSV)
+    colors = [
+        [0.0, 0.8, 0.9],   # Red
+        [0.15, 0.8, 0.9],  # Yellow
+        [0.33, 0.8, 0.9],  # Green
+        [0.5, 0.8, 0.9],   # Cyan
+        [0.67, 0.8, 0.9],  # Blue
+        [0.83, 0.8, 0.9],  # Magenta
+    ]
     
-            
-        # Initialize color regions for this strip if not already done
-        if strip_id not in instate['color_regions']:
-            instate['color_regions'][strip_id] = []
-            
-            # Create initial color regions - divide strip into segments
-            num_regions = max(2, min(6, strip_length // 30))  # 2-6 regions depending on strip length
-            region_size = strip_length / num_regions
-            
-            for i in range(num_regions):
-                # Create a color region with position centered in each segment
-                center = (i + 0.5) * region_size
-                
-                # Get random color from palette
-                color_name = np.random.choice(list(instate['colors'].keys()))
-                h, s, v = instate['colors'][color_name]
-                
-                # Random direction for movement
-                direction = 1 if np.random.random() < 0.5 else -1
-                
-                # Create region
-                region = {
-                    'center': center,
-                    'size': region_size * 0.7,  # Slightly smaller than segment for initial gaps
-                    'h': h,
-                    's': s,
-                    'v': v,
-                    'speed': 5 + np.random.random() * 15,  # 5-20 pixels per second
-                    'direction': direction,
-                    'wobble_freq': 0.5 + np.random.random() * 1.5,  # 0.5-2.0 Hz
-                    'wobble_amount': 0.2 + np.random.random() * 0.4,  # 0.2-0.6 size wobble
-                    'wobble_offset': np.random.random() * 6.28,  # Random phase
-                    'lifetime': 0,  # Time tracking for color changes
-                    'color_change_time': 5 + np.random.random() * 10  # 5-15 seconds between color changes
-                }
-                
-                instate['color_regions'][strip_id].append(region)
+    for strip_id, buffer in pattern_buffers.items():
+        strip_length = len(buffer)
         
-        # Update regions and check for collisions
-        for i, region in enumerate(instate['color_regions'][strip_id]):
-            # Update region position based on speed and direction
-            effective_speed = region['speed'] * instate['region_speed_multiplier']
-            region['center'] += effective_speed * region['direction'] * delta_time
-            
-            # Add wobble to size for a playful effect
-            time_factor = outstate['current_time'] * region['wobble_freq']
-            size_wobble = 1.0 + region['wobble_amount'] * np.sin(time_factor + region['wobble_offset'])
-            region['effective_size'] = region['size'] * size_wobble  # Store for rendering
-            
-            # Handle wrapping around strip boundaries
-            if region['center'] >= strip_length:
-                region['center'] -= strip_length
-            elif region['center'] < 0:
-                region['center'] += strip_length
-            
-            # Handle collision with other regions - check if regions are too close
-            for j, other_region in enumerate(instate['color_regions'][strip_id]):
-                if i != j:  # Don't compare to self
-                    # Calculate distance considering strip wrapping
-                    direct_dist = abs(region['center'] - other_region['center'])
-                    wrapped_dist = strip_length - direct_dist
-                    distance = min(direct_dist, wrapped_dist)
-                    
-                    # Minimum allowed distance is sum of half sizes
-                    min_distance = (region['effective_size'] + other_region.get('effective_size', other_region['size'])) * 0.5
-                    
-                    # If too close, reverse direction of both
-                    if distance < min_distance * 0.8:  # 80% of minimum to create some bounce space
-                        # Only reverse if moving toward each other
-                        if ((region['center'] < other_region['center'] and region['direction'] > 0 and 
-                             other_region['direction'] < 0) or
-                            (region['center'] > other_region['center'] and region['direction'] < 0 and 
-                             other_region['direction'] > 0)):
-                            region['direction'] *= -1
-                            other_region['direction'] *= -1
-                            
-                            # Add slight random speed variation on bounce
-                            region['speed'] *= 0.9 + 0.2 * np.random.random()
-                            other_region['speed'] *= 0.9 + 0.2 * np.random.random()
-                            
-                            # Keep speeds in reasonable range
-                            region['speed'] = max(5, min(20, region['speed']))
-                            other_region['speed'] = max(5, min(20, other_region['speed']))
-            
-            # Update lifetime and check for color change
-            region['lifetime'] += delta_time
-            if region['lifetime'] > region['color_change_time']:
-                # Reset lifetime
-                region['lifetime'] = 0
-                
-                # Choose a new color - avoid similar hue to neighbors
-                available_colors = list(instate['colors'].keys())
-                
-                # Try to get neighboring regions (accounting for potential out-of-bounds)
-                if len(instate['color_regions'][strip_id]) > 1:
-                    # Find regions that are close by distance
-                    neighbor_indices = []
-                    for j, other in enumerate(instate['color_regions'][strip_id]):
-                        if i != j:
-                            direct_dist = abs(region['center'] - other['center'])
-                            wrapped_dist = strip_length - direct_dist
-                            distance = min(direct_dist, wrapped_dist)
-                            
-                            if distance < (region['size'] + other['size']) * 1.5:  # If close enough to be a neighbor
-                                neighbor_indices.append(j)
-                    
-                    # If we have neighbors, try to avoid their colors
-                    if neighbor_indices:
-                        neighbor_hues = [instate['color_regions'][strip_id][j]['h'] for j in neighbor_indices]
-                        
-                        # Filter out colors with similar hue
-                        filtered_colors = []
-                        for color_name in available_colors:
-                            h, s, v = instate['colors'][color_name]
-                            is_similar = False
-                            for n_hue in neighbor_hues:
-                                # Check if hues are similar (considering wrap-around at 1.0)
-                                hue_dist = min(abs(h - n_hue), 1.0 - abs(h - n_hue))
-                                if hue_dist < 0.15:  # Consider similar if within 15% of hue space
-                                    is_similar = True
-                                    break
-                            if not is_similar:
-                                filtered_colors.append(color_name)
-                        
-                        # If we have filtered colors, use them, otherwise use all colors
-                        if filtered_colors:
-                            available_colors = filtered_colors
-                
-                # Choose a new color from available options
-                new_color_name = np.random.choice(available_colors)
-                h, s, v = instate['colors'][new_color_name]
-                
-                # Update region color
-                region['h'] = h
-                region['s'] = s
-                region['v'] = v
-                
-                # Also randomize wobble parameters for variety
-                region['wobble_freq'] = 0.5 + np.random.random() * 1.5
-                region['wobble_amount'] = 0.2 + np.random.random() * 0.4
-                region['wobble_offset'] = np.random.random() * 6.28
-                
-                # Set a new color change time
-                region['color_change_time'] = 5 + np.random.random() * 10
+        # Create 3 moving waves per strip
+        positions = np.arange(strip_length, dtype=float)
+        buffer[:] = 0  # Clear buffer
         
-        # -------- SIMPLIFIED RENDERING APPROACH --------
-        # Initialize buffer with zeros
-        buffer_hsv = np.zeros((strip_length, 4))  # [h, s, v, influence]
+        # Convert strip_id to number for color variation
+        strip_hash = hash(strip_id) % len(colors)
         
-        # Render each region as a Gaussian-like distribution of influence
-        pixels = np.arange(strip_length)
+        for wave_idx in range(3):
+            # Each wave moves at different speed and uses different color
+            wave_speed = 20 + wave_idx * 15  # pixels per second
+            wave_width = strip_length * 0.3
+            color_idx = (wave_idx + strip_hash) % len(colors)
+            
+            # Calculate wave center position (wraps around)
+            center = (current_time * wave_speed + wave_idx * strip_length / 3) % strip_length
+            
+            # Calculate distances with wrap-around
+            dist1 = np.abs(positions - center)
+            dist2 = strip_length - dist1
+            distances = np.minimum(dist1, dist2)
+            
+            # Gaussian-like influence
+            influence = np.exp(-0.5 * (distances / (wave_width / 3))**2)
+            
+            # Convert color to RGB
+            h, s, v = colors[color_idx]
+            r, g, b = hsv_to_rgb_vectorized(h, s, v * influence)
+            
+            # Add to buffer (additive blending)
+            buffer[:, 0] += r * influence
+            buffer[:, 1] += g * influence  
+            buffer[:, 2] += b * influence
+            buffer[:, 3] = np.maximum(buffer[:, 3], influence * 0.7)
         
-        for region in instate['color_regions'][strip_id]:
-            # Calculate distance to center with wrapping
-            direct_dist = np.abs(pixels - region['center'])
-            wrapped_dist = strip_length - direct_dist
-            distances = np.minimum(direct_dist, wrapped_dist)
-            
-            # Calculate influence using a Gaussian-like falloff
-            sigma = region['effective_size'] / 2  # Standard deviation (half the size)
-            influence = np.exp(-0.5 * (distances / sigma)**2)  # Gaussian-like falloff
-            
-            # Only apply where influence is significant
-            mask = influence > 0.01
-            
-            # Add this region's contribution to the buffer
-            # Additive blending for HSV values weighted by influence
-            buffer_hsv[mask, 0] += region['h'] * influence[mask]  # Hue
-            buffer_hsv[mask, 1] += region['s'] * influence[mask]  # Saturation
-            buffer_hsv[mask, 2] += region['v'] * influence[mask]  # Value
-            buffer_hsv[mask, 3] += influence[mask]  # Total influence for normalization
+        # Clamp values and apply fade
+        buffer[:, :3] = np.clip(buffer[:, :3], 0, 1)
+        buffer[:, 3] = np.clip(buffer[:, 3] * fade_alpha, 0, 1)
         
-        # Normalize the HSV values by total influence
-        has_influence = buffer_hsv[:, 3] > 0
-        if np.any(has_influence):
-            # Normalize hue, saturation, value by total influence
-            buffer_hsv[has_influence, 0] /= buffer_hsv[has_influence, 3]
-            buffer_hsv[has_influence, 1] /= buffer_hsv[has_influence, 3]
-            buffer_hsv[has_influence, 2] /= buffer_hsv[has_influence, 3]
-            
-            # Wrap hue to 0-1 range
-            buffer_hsv[:, 0] = buffer_hsv[:, 0] % 1.0
-            
-            # Clamp saturation and value to 0-1 range
-            buffer_hsv[:, 1] = np.clip(buffer_hsv[:, 1], 0, 1)
-            buffer_hsv[:, 2] = np.clip(buffer_hsv[:, 2], 0, 1)
-            
-            # Convert HSV to RGB
-            rgb = np.zeros((strip_length, 3))
-            r, g, b = hsv_to_rgb_vectorized(
-                buffer_hsv[has_influence, 0], 
-                buffer_hsv[has_influence, 1], 
-                buffer_hsv[has_influence, 2]
-            )
-            
-            # Set final RGB values
-            rgb_buffer = np.zeros((strip_length, 4))  # [r, g, b, a]
-            rgb_buffer[has_influence, 0] = r
-            rgb_buffer[has_influence, 1] = g
-            rgb_buffer[has_influence, 2] = b
-            
-            # Alpha based on influence (scale to reasonable range)
-            rgb_buffer[has_influence, 3] = np.clip(buffer_hsv[has_influence, 3] * 0.5, 0, 1)
-            
-            # Add sparkles
-            sparkle_chance = 0.02 * curious_level  # More sparkles when more curious
-            sparkle_mask = np.random.random(strip_length) < sparkle_chance
-            
-            if np.any(sparkle_mask):
-                # Create sparkles
-                num_sparkles = np.sum(sparkle_mask)
-                sparkle_h = np.random.random(num_sparkles)
-                sparkle_s = np.full_like(sparkle_h, 0.2)  # Low saturation (white-ish)
-                sparkle_v = np.ones_like(sparkle_h)  # Full brightness
-                
-                # Convert sparkles to RGB
-                sr, sg, sb = hsv_to_rgb_vectorized(sparkle_h, sparkle_s, sparkle_v)
-                
-                # Add sparkles to the buffer
-                sparkle_indices = np.where(sparkle_mask)[0]
-                rgb_buffer[sparkle_indices, 0] = np.minimum(1.0, rgb_buffer[sparkle_indices, 0] + sr * 0.7)
-                rgb_buffer[sparkle_indices, 1] = np.minimum(1.0, rgb_buffer[sparkle_indices, 1] + sg * 0.7)
-                rgb_buffer[sparkle_indices, 2] = np.minimum(1.0, rgb_buffer[sparkle_indices, 2] + sb * 0.7)
-                rgb_buffer[sparkle_indices, 3] = np.minimum(1.0, rgb_buffer[sparkle_indices, 3] + 0.3)
-            
-            # Copy from numpy array back to buffer
-            mask = rgb_buffer[:, 3] > 0
-            buffer[:] = 0  # Clear the original buffer
-            buffer[mask] = rgb_buffer[mask]
+        # Add occasional sparkles
+        sparkle_mask = np.random.random(strip_length) < 0.01
+        if np.any(sparkle_mask):
+            buffer[sparkle_mask, :3] = 1.0  # White sparkles
+            buffer[sparkle_mask, 3] = np.maximum(buffer[sparkle_mask, 3], 0.8)

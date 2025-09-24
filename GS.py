@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # Start with summer bloom weather
    
 
-    env_system.scheduler.schedule_event(0, 600, GS_blink_fade)  # noqa: F405
+    env_system.scheduler.schedule_event(0, 600, GS_curious_playful)  # noqa: F405
     #env_system.scheduler.schedule_event(00, 60, GS_blood_flow)
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
