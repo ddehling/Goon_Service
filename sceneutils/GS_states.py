@@ -103,26 +103,100 @@ def GS_prototype_example(instate, outstate):
         rgba_values = np.stack([r_values, g_values, b_values, alpha_values], axis=1)
         buffer[:] = rgba_values
         
+def GS_blink_fade(instate, outstate):
+    """
+    Blink and fade pattern where random pixels turn on each frame with random colors
+    from a palette, and all pixels fade at 0.3 per second.
+    """
+    name = 'blink_fade'
+    buffers = outstate['buffers']
 
+    if instate['count'] == 0:
+        buffers.register_generator(name)
+        return
 
+    if instate['count'] == -1:
+        buffers.generator_alphas[name] = 0
+        return
 
+    sound_level = outstate.get('sound_level', 1.0)
+    
+    # Calculate fade in/out over first and last 5 seconds
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
+    
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
+    
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
+        return
+    
+    current_time = outstate['current_time']
+    delta_time = outstate['current_time'] - outstate['last_time']
+    pattern_buffers = buffers.get_all_buffers(name)
+    
+    # Color palette (6 HSV colors)
+    color_palette = np.array([
+        [0.0, 1.0, 1.0],    # Pure red
+        [0.17, 1.0, 1.0],   # Pure yellow  
+        [0.33, 1.0, 1.0],   # Pure green
+        [0.5, 1.0, 1.0],    # Pure cyan
+        [0.67, 1.0, 1.0],   # Pure blue
+        [0.83, 1.0, 1.0],   # Pure magenta
+    ])
+    
+    # Parameters
+    pixels_per_frame = 3  # Number of pixels to turn on each frame
+    fade_rate = 0.6  # Fade rate per second
+    
+    for strip_id, buffer in pattern_buffers.items():
+        strip_length = len(buffer)
+        
+        # Apply exponential fade to all pixels
+        fade_factor = np.exp(-fade_rate * delta_time)
+        buffer[:, :3] *= fade_factor  # Fade RGB channels
+        
+        # Randomly select pixels to turn on this frame
+        num_new_pixels = min(pixels_per_frame, strip_length)
+        new_pixel_indices = np.random.choice(strip_length, num_new_pixels, replace=False)
+        
+        # Randomly select colors from palette for each new pixel
+        color_indices = np.random.choice(len(color_palette), num_new_pixels)
+        selected_colors_hsv = color_palette[color_indices]
+        
+        # Convert HSV colors to RGB
+        h_values = selected_colors_hsv[:, 0]
+        s_values = selected_colors_hsv[:, 1] 
+        v_values = selected_colors_hsv[:, 2]
+        
+        r_values, g_values, b_values = hsv_to_rgb_vectorized(h_values, s_values, v_values)
+        
+        # Set the new pixels to full brightness
+        buffer[new_pixel_indices, 0] = r_values
+        buffer[new_pixel_indices, 1] = g_values
+        buffer[new_pixel_indices, 2] = b_values
+        
+        # Set alpha for entire strip
+        buffer[:, 3] = fade_alpha
 
 def GS_blood_flow(instate, outstate):
     """
-    Blood flow simulation with white and red dots moving down strips.
-    Red dots move faster than white dots, with a beating pattern for pulse effect.
-    Dots leave fading trails behind them. Uses HSV color space.
+    Simple blood flow simulation with colored dots moving down strips.
+    Each dot is a single pixel that leaves a decaying trail behind it.
     """
     name = 'blood_flow'
     buffers = outstate['buffers']
 
     if instate['count'] == 0:
         buffers.register_generator(name)
-        # Initialize dot states and trail buffers for each strip
+        # Initialize dot states for each strip
         if not hasattr(buffers, 'blood_flow_dots'):
             buffers.blood_flow_dots = {}
-        if not hasattr(buffers, 'blood_flow_trails'):
-            buffers.blood_flow_trails = {}
         return
 
     if instate['count'] == -1:
@@ -149,243 +223,64 @@ def GS_blood_flow(instate, outstate):
     current_time = outstate['current_time']
     pattern_buffers = buffers.get_all_buffers(name)
     
-    # Heart beat pattern - using exponential decay for realistic pulse
-    beat_period = 1.2  # seconds between beats
+    # Heart beat pattern for speed variation
+    beat_period = 1.2
     beat_phase = (current_time % beat_period) / beat_period
-    
-    # Create a sharp pulse that decays quickly
-    if beat_phase < 0.15:  # Sharp rise
+    if beat_phase < 0.15:
         beat_intensity = (beat_phase / 0.15) ** 0.5
-    else:  # Exponential decay
+    else:
         decay_phase = (beat_phase - 0.15) / 0.85
         beat_intensity = np.exp(-decay_phase * 4)
     
-    # Base speed multiplier + beat boost
-    base_speed = 0.3
-    beat_boost = beat_intensity * 3.5
-    speed_multiplier = base_speed + beat_boost
+    base_speed = 10  # pixels per second
+    speed_multiplier = 1.0 + beat_intensity * 2.0
     
     for strip_id, buffer in pattern_buffers.items():
         strip_length = len(buffer)
         
-        # Initialize trail buffer for this strip (HSV + alpha)
-        if strip_id not in buffers.blood_flow_trails:
-            buffers.blood_flow_trails[strip_id] = np.zeros((strip_length, 4))  # H, S, V, A
-        
-        trail_buffer = buffers.blood_flow_trails[strip_id]
-        
         # Initialize dots for this strip if needed
         if strip_id not in buffers.blood_flow_dots:
-            num_white_dots = 3
-            num_red_dots = 8
-            
-            dots = []
-            # White dots (slower)
-            for _ in range(num_white_dots):
-                dots.append({
-                    'position': np.random.uniform(0, strip_length),
-                    'base_speed': np.random.uniform(8, 15),  # pixels per second
-                    'hue': np.random.uniform(0.08, 0.12),  # Warm white/yellow hues
-                    'saturation': np.random.uniform(0.1, 0.3),  # Low saturation for white-ish
-                    'size': np.random.uniform(1.5, 3.0)
-                })
-            
-            # Red dots (faster)  
-            for _ in range(num_red_dots):
-                dots.append({
-                    'position': np.random.uniform(0, strip_length),
-                    'base_speed': np.random.uniform(20, 35),  # pixels per second
-                    'hue': np.random.uniform(0.90, 1.05) % 1.0,  # Red hues (wrap around)
-                    'saturation': np.random.uniform(0.8, 1.0),  # High saturation for vibrant red
-                    'size': np.random.uniform(2.0, 4.0)
-                })
+            num_dots = 10
             
             buffers.blood_flow_dots[strip_id] = {
-                'dots': dots,
+                'positions': np.random.uniform(0, strip_length, num_dots),
+                'speeds': np.random.uniform(0.8, 1.5, num_dots),  # Speed multipliers
+                'colors': np.random.rand(num_dots, 3),  # RGB colors
                 'last_time': current_time
             }
+            
+            # Set some dots to be more red/white for blood theme
+            for i in range(num_dots):
+                if i < 6:  # First 3 dots are red-ish
+                    h = np.random.uniform(0.9, 1.1) % 1.0  # Red hues
+                    s = np.random.uniform(0.7, 1.0)
+                    v = np.random.uniform(0.8, 1.0)
+                else:  # Last 2 dots are white-ish
+                    h = np.random.uniform(0.05, 0.15)  # Warm white
+                    s = np.random.uniform(0.1, 0.4)
+                    v = np.random.uniform(0.9, 1.0)
+                
+                r, g, b = hsv_to_rgb_vectorized(h, s, v)
+                buffers.blood_flow_dots[strip_id]['colors'][i] = [r, g, b]
         
         strip_data = buffers.blood_flow_dots[strip_id]
         dt = current_time - strip_data['last_time']
         strip_data['last_time'] = current_time
         
-        # Fade trails over time - fade value (brightness) and saturation
-        trail_fade_rate = 0.25  # Per second (lower = longer trails)
-        fade_factor = trail_fade_rate ** dt
-        trail_buffer[:, 2] *= fade_factor  # Fade value (brightness)
-        trail_buffer[:, 1] *= (fade_factor ** 0.5)  # Fade saturation more slowly
+        # Decay all pixels in the buffer (create trailing effect)
+        decay_rate = 0.85  # How much remains each frame (lower = faster decay)
+        buffer[:, :3] *= decay_rate
         
-        # Start with dark background in HSV
-        bg_hue = 0.0  # Red hue
-        bg_saturation = 0.8
-        bg_value = 0.05
-        bg_r, bg_g, bg_b = hsv_to_rgb_vectorized(bg_hue, bg_saturation, bg_value)
-        buffer[:] = [bg_r, bg_g, bg_b, fade_alpha]
+        # Update dot positions
+        effective_speeds = strip_data['speeds'] * base_speed * speed_multiplier
+        strip_data['positions'] += effective_speeds * dt
+        strip_data['positions'] %= strip_length  # Wrap around
         
-        # Create working HSV buffer for the strip
-        hsv_buffer = np.zeros((strip_length, 3))  # H, S, V
-        hsv_buffer[:, 0] = bg_hue
-        hsv_buffer[:, 1] = bg_saturation  
-        hsv_buffer[:, 2] = bg_value
-        
-        # Update and render dots
-        for dot in strip_data['dots']:
-            # Store previous position for trail
-            prev_position = dot['position']
-            
-            # Update position
-            actual_speed = dot['base_speed'] * speed_multiplier
-            dot['position'] += actual_speed * dt
-            
-            # Reset to beginning when reaching end
-            if dot['position'] >= strip_length:
-                dot['position'] = dot['position'] % strip_length
-            
-            # Dot HSV values with beat intensity affecting brightness
-            dot_hue = dot['hue']
-            dot_saturation = dot['saturation']
-            base_value = 0.8
-            dot_value = base_value + (beat_intensity * 0.3)  # Pulse brighter on beat
-            
-            # Add trail segments between previous and current position
-            trail_intensity = 0.4  # How bright the trail starts
-            positions_to_trail = []
-            
-            # Handle wrapping case
-            if dot['position'] < prev_position:  # Wrapped around
-                # Trail from prev_position to end
-                for pos in np.arange(prev_position, strip_length, 0.5):
-                    positions_to_trail.append(pos)
-                # Trail from start to current position
-                for pos in np.arange(0, dot['position'], 0.5):
-                    positions_to_trail.append(pos)
-            else:
-                # Normal case - trail from prev to current
-                for pos in np.arange(prev_position, dot['position'], 0.5):
-                    positions_to_trail.append(pos)
-            
-            # Add trail points to trail buffer
-            for trail_pos in positions_to_trail:
-                trail_idx = int(trail_pos)
-                if 0 <= trail_idx < strip_length:
-                    # Additive blending in HSV space
-                    trail_add_value = dot_value * trail_intensity * 0.3
-                    
-                    # If existing trail is dim, use new color, otherwise blend
-                    if trail_buffer[trail_idx, 2] < 0.1:  # Low existing brightness
-                        trail_buffer[trail_idx, 0] = dot_hue
-                        trail_buffer[trail_idx, 1] = dot_saturation * 0.7  # Slightly desaturated
-                        trail_buffer[trail_idx, 2] = trail_add_value
-                    else:
-                        # Blend hues carefully (handle wraparound)
-                        existing_hue = trail_buffer[trail_idx, 0]
-                        hue_diff = abs(dot_hue - existing_hue)
-                        if hue_diff > 0.5:  # Wrap around case
-                            if dot_hue > existing_hue:
-                                existing_hue += 1.0
-                            else:
-                                dot_hue += 1.0
-                        
-                        weight = trail_add_value / (trail_buffer[trail_idx, 2] + trail_add_value + 1e-6)
-                        trail_buffer[trail_idx, 0] = ((1-weight) * existing_hue + weight * dot_hue) % 1.0
-                        trail_buffer[trail_idx, 1] = min(1.0, trail_buffer[trail_idx, 1] + dot_saturation * 0.1)
-                        trail_buffer[trail_idx, 2] = min(1.0, trail_buffer[trail_idx, 2] + trail_add_value)
-            
-            # Render current dot position with gaussian falloff
-            center = int(dot['position'])
-            size = dot['size']
-            
+        # Draw dots at their new positions
+        dot_indices = strip_data['positions'].astype(int)
+        buffer[dot_indices, :3] = strip_data['colors']  # Set RGB
+        buffer[:, 3] = fade_alpha  # Set alpha for entire strip
 
-            for offset in range(-int(size*2), int(size*2) + 1):
-                pixel_pos = center + offset
-                if 0 <= pixel_pos < strip_length:
-                    distance = abs(offset)
-                    intensity = np.exp(-(distance**2) / (2 * (size/2)**2))
-                    
-                    # Add bright dot to HSV buffer
-                    bright_value = dot_value * intensity
-                    
-                    if hsv_buffer[pixel_pos, 2] < bright_value:
-                        # Replace with brighter dot
-                        hsv_buffer[pixel_pos, 0] = dot_hue
-                        hsv_buffer[pixel_pos, 1] = dot_saturation
-                        hsv_buffer[pixel_pos, 2] = bright_value
-                    elif hsv_buffer[pixel_pos, 2] > 0.1:
-                        # Blend colors
-                        weight = bright_value / (hsv_buffer[pixel_pos, 2] + bright_value + 1e-6)
-                        # Handle hue blending with wraparound
-                        existing_hue = hsv_buffer[pixel_pos, 0]
-                        dot_hue_blend = dot_hue  # Initialize with original value
-                        
-                        hue_diff = abs(dot_hue - existing_hue)
-                        if hue_diff > 0.5:
-                            if dot_hue > existing_hue:
-                                existing_hue += 1.0
-                            else:
-                                dot_hue_blend = dot_hue + 1.0
-                        
-                        hsv_buffer[pixel_pos, 0] = ((1-weight) * existing_hue + weight * dot_hue_blend) % 1.0
-                        hsv_buffer[pixel_pos, 1] = min(1.0, hsv_buffer[pixel_pos, 1] + dot_saturation * weight)
-                        hsv_buffer[pixel_pos, 2] = min(1.0, hsv_buffer[pixel_pos, 2] + bright_value * 0.5)
-
-        
-        # Combine trail buffer with main HSV buffer
-        trail_brighter = trail_buffer[:, 2] > hsv_buffer[:, 2]
-        trail_visible = (trail_buffer[:, 2] > 0.05) & (~trail_brighter)
-        
-        # Case 1: Trail is brighter - replace entirely
-        hsv_buffer[trail_brighter] = trail_buffer[trail_brighter, :3]
-        
-        # Case 2: Trail is visible but dimmer - blend
-        if np.any(trail_visible):
-            # Calculate blend weights
-            trail_weights = trail_buffer[trail_visible, 2] / (
-                hsv_buffer[trail_visible, 2] + trail_buffer[trail_visible, 2] + 1e-6
-            )
-            
-            # Handle hue blending with wraparound
-            existing_hues = hsv_buffer[trail_visible, 0]
-            trail_hues = trail_buffer[trail_visible, 0]
-            
-            # Calculate hue differences
-            hue_diffs = np.abs(trail_hues - existing_hues)
-            wraparound_mask = hue_diffs > 0.5
-            
-            # Adjust hues for wraparound blending
-            existing_hues_adj = existing_hues.copy()
-            trail_hues_adj = trail_hues.copy()
-            
-            # Where wraparound is needed
-            trail_larger = wraparound_mask & (trail_hues > existing_hues)
-            existing_larger = wraparound_mask & (trail_hues <= existing_hues)
-            
-            existing_hues_adj[trail_larger] += 1.0
-            trail_hues_adj[existing_larger] += 1.0
-            
-            # Blend hues
-            blended_hues = ((1 - trail_weights) * existing_hues_adj + 
-                           trail_weights * trail_hues_adj) % 1.0
-            
-            # Update HSV buffer
-            hsv_buffer[trail_visible, 0] = blended_hues
-            hsv_buffer[trail_visible, 1] = np.minimum(1.0, 
-                hsv_buffer[trail_visible, 1] + 
-                trail_buffer[trail_visible, 1] * trail_weights
-            )
-            hsv_buffer[trail_visible, 2] = np.minimum(1.0,
-                hsv_buffer[trail_visible, 2] + 
-                trail_buffer[trail_visible, 2] * 0.7
-            )
-        # Convert HSV buffer to RGB and set final buffer
-        r_values, g_values, b_values = hsv_to_rgb_vectorized(
-            hsv_buffer[:, 0], hsv_buffer[:, 1], hsv_buffer[:, 2]
-        )
-        
-        buffer[:, 0] = r_values
-        buffer[:, 1] = g_values  
-        buffer[:, 2] = b_values
-        buffer[:, 3] = fade_alpha*(b_values>0.1)
-        
 
 
 def GS_tingles(instate, outstate):

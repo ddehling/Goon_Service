@@ -87,11 +87,11 @@ class EnvironmentalSystem:
         """Switch to video and ensure fullscreen state"""
         self.VLC.switch_to_file(vidnum)
         # Give VLC a moment to load the file
-        time.sleep(1.5)
+        time.sleep(.05)
         
         # Ensure fullscreen - toggle twice to guarantee fullscreen state
         self.VLC._send_command("fullscreen")
-        time.sleep(0.3)
+        time.sleep(0.03)
         self.VLC._send_command("fullscreen")
         
         print(f"Switched to video {vidnum + 1} - Fullscreen enforced")
@@ -103,6 +103,7 @@ class EnvironmentalSystem:
         
         if vidnum == 0:  # First video events
             self.scheduler.schedule_event(0, 15, GS_rage_lightning)
+            self.scheduler.schedule_event(10, 15, GS_tingles)
             #self.scheduler.schedule_event(3, 8, GS_calm_blue)
             #self.scheduler.schedule_event(12, 18, GS_intense_red)
             print("Scheduled events for Video 1 (Deadly Prey)")
@@ -110,7 +111,7 @@ class EnvironmentalSystem:
         elif vidnum == 1:  # Second video events
             #self.scheduler.schedule_event(0, 10, GS_horror_flicker)
             #self.scheduler.schedule_event(5, 12, GS_dark_atmosphere)
-            self.scheduler.schedule_event(15, 20, GS_rage_lightning)
+            self.scheduler.schedule_event(0, 20, GS_blood_flow)
             print("Scheduled events for Video 2 (Midnight Meat Train)")
             
 
@@ -123,7 +124,7 @@ if __name__ == "__main__":
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
-    vidlength = [10, 12]
+    vidlength = [15, 17]
     vidnum = 0
     numvid = len(vidlength)
     
@@ -154,9 +155,15 @@ if __name__ == "__main__":
                     
                     # Start listening for fresh key press
                     env_system.start_listening_for_key()
-                    
+                    env_system.scheduler.schedule_event(0, 150, GS_curious_playful)
                     while True:
                         key = env_system.check_key_press()
+                        env_system.update()
+                        current_time = time.perf_counter()
+                        elapsed = current_time - lasttime
+                        sleep_time = max(0, FRAME_TIME - elapsed)
+                        time.sleep(sleep_time)
+                        lasttime = time.perf_counter()
                         if key == 'q':
                             env_system.stop_listening_for_key()
                             vidnum = (vidnum + 1) % numvid
