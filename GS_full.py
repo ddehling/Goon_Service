@@ -155,7 +155,7 @@ if __name__ == "__main__":
                     
                     # Start listening for fresh key press
                     env_system.start_listening_for_key()
-                    env_system.scheduler.schedule_event(0, 150, GS_curious_playful)
+                    env_system.scheduler.schedule_event(0, 150, GS_blink_fade)
                     while True:
                         key = env_system.check_key_press()
                         env_system.update()
@@ -170,7 +170,7 @@ if __name__ == "__main__":
                             print(f"Switching to video {vidnum + 1}")
                             video_finished = True  # Set flag to break outer loop
                             break
-                        time.sleep(0.1)
+                       
                     
                     # Break out of the inner playback loop
                     if video_finished:
