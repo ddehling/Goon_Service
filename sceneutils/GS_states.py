@@ -727,3 +727,158 @@ def GS_curious_playful(instate, outstate):
         if np.any(sparkle_mask):
             buffer[sparkle_mask, :3] = 1.0  # White sparkles
             buffer[sparkle_mask, 3] = np.maximum(buffer[sparkle_mask, 3], 0.8)
+
+def GS_forest(instate, outstate):
+    """
+    Forest simulation with colored dots moving down strips.
+    Each dot is a single pixel that leaves a decaying trail behind it.
+    Each dot has two colors: brown for pixels <100, green for pixels >=100.
+    No heartbeat speed variation - each dot moves at its constant speed.
+    Includes random twinkle overlay using same color scheme.
+    """
+    name = 'forest'
+    buffers = outstate['buffers']
+
+    if instate['count'] == 0:
+        buffers.register_generator(name)
+        # Initialize dot states for each strip
+        if not hasattr(buffers, 'forest_dots'):
+            buffers.forest_dots = {}
+        return
+
+    if instate['count'] == -1:
+        buffers.generator_alphas[name] = 0
+        return
+
+    sound_level = outstate.get('sound_level', 1.0)
+    
+    # Calculate fade in/out over first and last 5 seconds
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
+    
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
+    
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
+        return
+    
+    current_time = outstate['current_time']
+    delta_time = outstate['current_time'] - outstate['last_time']
+    pattern_buffers = buffers.get_all_buffers(name)
+    
+    # Brown color palette (HSV)
+    brown_colors = np.array([
+        [0.08, 0.8, 0.4],   # Dark brown
+        [0.06, 0.7, 0.5],   # Medium brown  
+        [0.1, 0.6, 0.6],    # Light brown
+        [0.05, 0.9, 0.3],   # Very dark brown
+        [0.12, 0.5, 0.7],   # Tan brown
+    ])
+    
+    # Green color palette (HSV)
+    green_colors = np.array([
+        [0.25, 0.8, 0.5],   # Dark forest green
+        [0.33, 0.7, 0.6],   # Medium green
+        [0.28, 0.9, 0.4],   # Deep green
+        [0.35, 0.6, 0.7],   # Light green
+        [0.22, 0.85, 0.45], # Pine green
+    ])
+    
+    base_speed = 10  # pixels per second (constant, no heartbeat variation)
+    
+    # Twinkle parameters
+    twinkles_per_frame = 2  # Number of twinkles to spawn each frame
+    twinkle_fade_rate = 1.2  # Fade rate per second
+    
+    for strip_id, buffer in pattern_buffers.items():
+        strip_length = len(buffer)
+        
+        # Initialize dots for this strip if needed
+        if strip_id not in buffers.forest_dots:
+            num_dots = 10
+            
+            buffers.forest_dots[strip_id] = {
+                'positions': np.random.uniform(0, strip_length, num_dots),
+                'speeds': np.random.uniform(0.8, 1.5, num_dots),  # Speed multipliers
+                'brown_colors': np.zeros((num_dots, 3)),  # RGB colors for brown regions
+                'green_colors': np.zeros((num_dots, 3)),  # RGB colors for green regions
+                'last_time': current_time
+            }
+            
+            # Assign colors to each dot
+            for i in range(num_dots):
+                # Choose random brown color
+                brown_hsv = brown_colors[np.random.randint(len(brown_colors))]
+                h, s, v = brown_hsv
+                r, g, b = hsv_to_rgb_vectorized(h, s, v)
+                buffers.forest_dots[strip_id]['brown_colors'][i] = [r, g, b]
+                
+                # Choose random green color
+                green_hsv = green_colors[np.random.randint(len(green_colors))]
+                h, s, v = green_hsv
+                r, g, b = hsv_to_rgb_vectorized(h, s, v)
+                buffers.forest_dots[strip_id]['green_colors'][i] = [r, g, b]
+        
+        strip_data = buffers.forest_dots[strip_id]
+        dt = current_time - strip_data['last_time']
+        strip_data['last_time'] = current_time
+        
+        # Apply exponential fade to all pixels for twinkle effect
+        fade_factor = np.exp(-twinkle_fade_rate * delta_time)
+        buffer[:, :3] *= fade_factor
+        
+        # Apply additional decay for trailing effect
+        decay_rate = 0.995  # How much remains each frame (lower = faster decay)
+        buffer[:, :3] *= decay_rate
+        
+        # Update dot positions (constant speed, no heartbeat variation)
+        effective_speeds = strip_data['speeds'] * base_speed
+        strip_data['positions'] += effective_speeds * dt
+        strip_data['positions'] %= strip_length  # Wrap around
+        
+        # Vectorized dot rendering
+        dot_indices = strip_data['positions'].astype(int)
+        
+        # Create mask for brown vs green regions
+        brown_mask = dot_indices < 100
+        green_mask = ~brown_mask
+        
+        # Set brown colors for dots in brown region
+        if np.any(brown_mask):
+            brown_dots = np.where(brown_mask)[0]
+            buffer[dot_indices[brown_dots], :3] = strip_data['brown_colors'][brown_dots]
+        
+        # Set green colors for dots in green region  
+        if np.any(green_mask):
+            green_dots = np.where(green_mask)[0]
+            buffer[dot_indices[green_dots], :3] = strip_data['green_colors'][green_dots]
+        
+        # Add random twinkles using forest color scheme
+        num_new_twinkles = min(twinkles_per_frame, strip_length)
+        if num_new_twinkles > 0:
+            twinkle_indices = np.random.choice(strip_length, num_new_twinkles, replace=False)
+            
+            # Determine color palette based on pixel position
+            for idx in twinkle_indices:
+                if idx < 100:
+                    # Use brown color palette
+                    color_hsv = brown_colors[np.random.randint(len(brown_colors))]
+                else:
+                    # Use green color palette
+                    color_hsv = green_colors[np.random.randint(len(green_colors))]
+                
+                h, s, v = color_hsv
+                # Make twinkles brighter than the base colors
+                r, g, b = hsv_to_rgb_vectorized(h, s * 0.8, min(1.0, v * 1.3))
+                
+                # Set the twinkle pixel to full brightness
+                buffer[idx, 0] = max(buffer[idx, 0], r)
+                buffer[idx, 1] = max(buffer[idx, 1], g)
+                buffer[idx, 2] = max(buffer[idx, 2], b)
+        
+        buffer[:, 3] = fade_alpha  # Set alpha for entire strip
