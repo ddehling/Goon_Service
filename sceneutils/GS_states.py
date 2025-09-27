@@ -142,12 +142,12 @@ def GS_blink_fade(instate, outstate):
     
     # Color palette (6 HSV colors)
     color_palette = np.array([
-        [0.0, 1.0, 1.0],    # Pure red
-        [0.17, 1.0, 1.0],   # Pure yellow  
-        [0.33, 1.0, 1.0],   # Pure green
-        [0.5, 1.0, 1.0],    # Pure cyan
-        [0.67, 1.0, 1.0],   # Pure blue
-        [0.83, 1.0, 1.0],   # Pure magenta
+        [0.086, 0.727, 0.761],    # Pure red
+        [0.159, 0.932, 0.459],   # Pure yellow  
+        [0.400, 0.400, 0.196],   # Pure green
+        [0.574, 0.902, 0.561],    # Pure cyan
+        [0.983, 0.660, 0.635],   # Pure blue
+        [0.050, 0.932, 0.463],   # Pure magenta
     ])
     
     # Parameters
@@ -251,8 +251,8 @@ def GS_blood_flow(instate, outstate):
             
             # Set some dots to be more red/white for blood theme
             for i in range(num_dots):
-                if i < 6:  # First 3 dots are red-ish
-                    h = np.random.uniform(0.9, 1.1) % 1.0  # Red hues
+                if i < 8:  # First 3 dots are red-ish
+                    h = np.random.uniform(0.9, 1.05) % 1.0  # Red hues
                     s = np.random.uniform(0.7, 1.0)
                     v = np.random.uniform(0.8, 1.0)
                 else:  # Last 2 dots are white-ish
@@ -680,7 +680,14 @@ def GS_curious_playful(instate, outstate):
         [0.67, 0.8, 0.9],  # Blue
         [0.83, 0.8, 0.9],  # Magenta
     ]
-    
+    colors = np.array([
+        [0.086, 0.727, 0.761],    # Pure red
+        [0.159, 0.932, 0.459],   # Pure yellow  
+        [0.400, 0.400, 0.196],   # Pure green
+        [0.574, 0.902, 0.561],    # Pure cyan
+        [0.983, 0.660, 0.635],   # Pure blue
+        [0.050, 0.932, 0.463],   # Pure magenta
+    ])
     for strip_id, buffer in pattern_buffers.items():
         strip_length = len(buffer)
         
@@ -882,3 +889,162 @@ def GS_forest(instate, outstate):
                 buffer[idx, 2] = max(buffer[idx, 2], b)
         
         buffer[:, 3] = fade_alpha  # Set alpha for entire strip
+
+def GS_sunrise(instate, outstate):
+    """
+    Sunrise pattern where all strips show the same effect.
+    Creates a rising sun that moves from pixel 0 to ~250 and back with warm sunrise colors
+    transitioning from orange/yellow to light blue sky over time.
+    """
+    name = 'sunrise'
+    buffers = outstate['buffers']
+
+    if instate['count'] == 0:
+        buffers.register_generator(name)
+        
+        # Initialize parameters
+        instate['sun_position'] = 0.0  # Position of the sun (0.0 to 1.0)
+        instate['cycle_duration'] = 120.0  # Time for a complete sunrise cycle (seconds)
+        
+        return
+
+    if instate['count'] == -1:
+        buffers.generator_alphas[name] = 0
+        return
+
+    sound_level = outstate.get('sound_level', 1.0)
+    
+    # Calculate fade in/out over first and last 5 seconds
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
+    
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
+    
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
+        return
+    
+    # Update sun position based on time (smoothly looping)
+    current_time = outstate['current_time']
+    time_position = (instate['elapsed_time'] % instate['cycle_duration']) / instate['cycle_duration']
+    instate['sun_position'] = time_position
+    
+    # Get all buffers for this generator
+    pattern_buffers = buffers.get_all_buffers(name)
+    
+    # Calculate sun movement from 0 to 250 and back
+    # Use sine wave to create smooth rise and set motion
+    sun_cycle = 0.5 + 0.5 * np.sin(2 * np.pi * instate['sun_position'] - np.pi/2)
+    sun_height = sun_cycle  # Height affects colors too
+    
+    # Process each strip identically
+    for strip_id, buffer in pattern_buffers.items():
+        strip_length = len(buffer)
+        
+        # Calculate sun center position - moves from 0 to 250 (or strip length if shorter)
+        max_position = min(250, strip_length - 1)
+        sun_center = int(sun_cycle * max_position)
+        
+        # Calculate sun radius based on height
+        base_radius = 75  # Fixed radius in pixels
+        sun_radius = max(3, int(base_radius * (0.5 + 0.5 * sun_height)))
+        
+        # Create position arrays for vectorized calculations
+        positions = np.arange(strip_length)
+        
+        # Calculate distances from sun center (vectorized)
+        distances = np.abs(positions - sun_center)
+        
+        # Determine which pixels are inside the sun (vectorized)
+        inside_sun_mask = distances <= sun_radius
+        
+        # Calculate normalized distances (vectorized)
+        normalized_distances = np.zeros(strip_length)
+        # Inside sun
+        if np.any(inside_sun_mask):
+            normalized_distances[inside_sun_mask] = distances[inside_sun_mask] / sun_radius
+        # Outside sun
+        outside_sun_mask = ~inside_sun_mask
+        if np.any(outside_sun_mask):
+            normalized_distances[outside_sun_mask] = np.minimum(
+                1.0, (distances[outside_sun_mask] - sun_radius) / (strip_length * 0.3)
+            )
+        
+        # Calculate base sky colors based on sun height
+        if sun_height < 0.5:
+            # Sunrise/sunset phase - orange to light blue
+            transition = sun_height * 2.0
+            
+            # Sky colors (vectorized calculation)
+            sky_r = 0.9 - (0.5 * transition)
+            sky_g = 0.5 + (0.2 * transition)
+            sky_b = 0.2 + (0.6 * transition)
+        else:
+            # Day phase - light blue to deeper blue
+            transition = (sun_height - 0.5) * 2.0
+            
+            # Sky colors (vectorized calculation)
+            sky_r = 0.4 - (0.1 * transition)
+            sky_g = 0.7 - (0.1 * transition)
+            sky_b = 0.8 + (0.1 * transition)
+        
+        # Initialize color arrays
+        r_values = np.zeros(strip_length)
+        g_values = np.zeros(strip_length)
+        b_values = np.zeros(strip_length)
+        a_values = np.zeros(strip_length)
+        
+        # Set colors for inside sun (vectorized)
+        if np.any(inside_sun_mask):
+            # Calculate intensity based on normalized distance
+            intensities = 1.0 - normalized_distances[inside_sun_mask] ** 2
+            
+            # Set sun colors - warm yellow/orange
+            r_values[inside_sun_mask] = 1.0
+            g_values[inside_sun_mask] = 0.7 + (0.3 * intensities)
+            b_values[inside_sun_mask] = 0.2 + (0.3 * intensities)
+            a_values[inside_sun_mask] = 0.8 + (0.2 * intensities)
+        
+        # Set colors for outside sun (vectorized)
+        if np.any(outside_sun_mask):
+            # Start with sky colors
+            r_values[outside_sun_mask] = sky_r
+            g_values[outside_sun_mask] = sky_g
+            b_values[outside_sun_mask] = sky_b
+            
+            # Apply sun glow effect (vectorized)
+            glow_mask = (distances > sun_radius) & (distances < sun_radius * 2)
+            if np.any(glow_mask):
+                glow_factors = np.maximum(0, np.minimum(0.5, 1.0 - (distances[glow_mask] - sun_radius) / sun_radius))
+                
+                # Blend with sun colors
+                r_values[glow_mask] = r_values[glow_mask] * (1 - glow_factors) + 1.0 * glow_factors
+                g_values[glow_mask] = g_values[glow_mask] * (1 - glow_factors) + 0.7 * glow_factors
+                b_values[glow_mask] = b_values[glow_mask] * (1 - glow_factors) + 0.2 * glow_factors
+            
+            # Set alpha for outside sun
+            a_values[outside_sun_mask] = 0.6 - (0.2 * normalized_distances[outside_sun_mask])
+        
+        # Add gentle ambient variation for more natural look
+        variations = 0.05 * np.sin(positions * 0.1 + current_time * 0.5)
+        r_values += variations
+        g_values += variations
+        b_values += variations
+        
+        # Ensure color values are in valid range (vectorized)
+        r_values = np.clip(r_values, 0.0, 1.0)
+        g_values = np.clip(g_values, 0.0, 1.0)
+        b_values = np.clip(b_values, 0.0, 1.0)
+        a_values = np.clip(a_values, 0.0, 1.0)
+        
+        # Apply final fade alpha
+        a_values *= fade_alpha
+        
+        # Combine into RGBA array and set buffer
+        rgba_values = np.stack([r_values, g_values, b_values, a_values], axis=1)
+        buffer[:] = rgba_values
