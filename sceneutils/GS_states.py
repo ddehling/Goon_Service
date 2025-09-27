@@ -892,9 +892,9 @@ def GS_forest(instate, outstate):
 
 def GS_sunrise(instate, outstate):
     """
-    Sunrise pattern where all strips show the same effect.
-    Creates a rising sun that moves from pixel 0 to ~250 and back with warm sunrise colors
-    transitioning from orange/yellow to light blue sky over time.
+    Enhanced sunrise pattern with night phase featuring slowly blinking stars.
+    Cycle: Night -> Sunrise -> Day -> Sunset -> Night
+    During night phase, shows ~60 randomly placed, slowly blinking stars per strip.
     """
     name = 'sunrise'
     buffers = outstate['buffers']
@@ -903,8 +903,14 @@ def GS_sunrise(instate, outstate):
         buffers.register_generator(name)
         
         # Initialize parameters
-        instate['sun_position'] = 0.0  # Position of the sun (0.0 to 1.0)
-        instate['cycle_duration'] = 120.0  # Time for a complete sunrise cycle (seconds)
+        instate['cycle_duration'] = 60.0  # Time for a complete cycle (seconds)
+        instate['stars'] = {}  # Star data per strip
+        
+        # Phase durations (in fraction of cycle)
+        instate['night_duration'] = 0.25      # 30 seconds
+        instate['sunrise_duration'] = 0.25    # 30 seconds  
+        instate['day_duration'] = 0.25        # 30 seconds
+        instate['sunset_duration'] = 0.25     # 30 seconds
         
         return
 
@@ -929,122 +935,318 @@ def GS_sunrise(instate, outstate):
     if fade_alpha < 0.01:
         return
     
-    # Update sun position based on time (smoothly looping)
+    # Calculate cycle position and determine current phase
     current_time = outstate['current_time']
-    time_position = (instate['elapsed_time'] % instate['cycle_duration']) / instate['cycle_duration']
-    instate['sun_position'] = time_position
+    cycle_position = (instate['elapsed_time'] % instate['cycle_duration']) / instate['cycle_duration']
+    
+    # Determine current phase
+    if cycle_position < instate['night_duration']:
+        # Night phase (0.0 - 0.25)
+        phase = 'night'
+        phase_progress = cycle_position / instate['night_duration']
+    elif cycle_position < instate['night_duration'] + instate['sunrise_duration']:
+        # Sunrise phase (0.25 - 0.5)
+        phase = 'sunrise'
+        phase_progress = (cycle_position - instate['night_duration']) / instate['sunrise_duration']
+    elif cycle_position < instate['night_duration'] + instate['sunrise_duration'] + instate['day_duration']:
+        # Day phase (0.5 - 0.75)
+        phase = 'day'
+        phase_progress = (cycle_position - instate['night_duration'] - instate['sunrise_duration']) / instate['day_duration']
+    else:
+        # Sunset phase (0.75 - 1.0)
+        phase = 'sunset'
+        phase_progress = (cycle_position - instate['night_duration'] - instate['sunrise_duration'] - instate['day_duration']) / instate['sunset_duration']
     
     # Get all buffers for this generator
     pattern_buffers = buffers.get_all_buffers(name)
     
-    # Calculate sun movement from 0 to 250 and back
-    # Use sine wave to create smooth rise and set motion
-    sun_cycle = 0.5 + 0.5 * np.sin(2 * np.pi * instate['sun_position'] - np.pi/2)
-    sun_height = sun_cycle  # Height affects colors too
-    
-    # Process each strip identically
+    # Process each strip
     for strip_id, buffer in pattern_buffers.items():
         strip_length = len(buffer)
-        
-        # Calculate sun center position - moves from 0 to 250 (or strip length if shorter)
+        # Calculate continuous sun position and size
+        # Calculate continuous sun position and size
         max_position = min(250, strip_length - 1)
-        sun_center = int(sun_cycle * max_position)
         
-        # Calculate sun radius based on height
-        base_radius = 75  # Fixed radius in pixels
-        sun_radius = max(3, int(base_radius * (0.5 + 0.5 * sun_height)))
+        if phase == 'night':
+            sun_center = 0
+            sun_radius = 0
+        elif phase == 'sunrise':
+            # Sun grows from pixel 0 outward
+            sun_radius = max(1, int(40 * phase_progress))  # Radius grows with progress
+            sun_center = sun_radius - 1  # Center positioned so left edge touches pixel 0
+            # As it grows, it also moves toward final position
+            target_center = int(max_position * 0.75)  # Target center position
+            sun_center = int((sun_radius - 1) + (target_center - (sun_radius - 1)) * phase_progress)
+        elif phase == 'day':
+            # Sun at full size, centered around middle of strip
+            sun_center = int(max_position * 0.75)
+            sun_radius = 40
+        elif phase == 'sunset':
+            # Sun shrinks back toward pixel 0 (reverse of sunrise)
+            shrink_progress = 1.0 - phase_progress  # 1.0 to 0.0 during sunset
+            sun_radius = max(1, int(40 * shrink_progress)) if shrink_progress > 0 else 0
+            if sun_radius > 0:
+                target_center = int(max_position * 0.75)
+                sun_center = int((sun_radius - 1) + (target_center - (sun_radius - 1)) * shrink_progress)
+            else:
+                sun_center = 0
         
-        # Create position arrays for vectorized calculations
-        positions = np.arange(strip_length)
-        
-        # Calculate distances from sun center (vectorized)
-        distances = np.abs(positions - sun_center)
-        
-        # Determine which pixels are inside the sun (vectorized)
-        inside_sun_mask = distances <= sun_radius
-        
-        # Calculate normalized distances (vectorized)
-        normalized_distances = np.zeros(strip_length)
-        # Inside sun
-        if np.any(inside_sun_mask):
-            normalized_distances[inside_sun_mask] = distances[inside_sun_mask] / sun_radius
-        # Outside sun
-        outside_sun_mask = ~inside_sun_mask
-        if np.any(outside_sun_mask):
-            normalized_distances[outside_sun_mask] = np.minimum(
-                1.0, (distances[outside_sun_mask] - sun_radius) / (strip_length * 0.3)
-            )
-        
-        # Calculate base sky colors based on sun height
-        if sun_height < 0.5:
-            # Sunrise/sunset phase - orange to light blue
-            transition = sun_height * 2.0
+        # Initialize stars for this strip if needed
+        if strip_id not in instate['stars']:
+            num_stars = 60
+            star_positions = np.random.choice(strip_length, size=min(num_stars, strip_length), replace=False)
             
-            # Sky colors (vectorized calculation)
-            sky_r = 0.9 - (0.5 * transition)
-            sky_g = 0.5 + (0.2 * transition)
-            sky_b = 0.2 + (0.6 * transition)
-        else:
-            # Day phase - light blue to deeper blue
-            transition = (sun_height - 0.5) * 2.0
-            
-            # Sky colors (vectorized calculation)
-            sky_r = 0.4 - (0.1 * transition)
-            sky_g = 0.7 - (0.1 * transition)
-            sky_b = 0.8 + (0.1 * transition)
+            # Each star has a position, blink phase offset, and blink frequency
+            instate['stars'][strip_id] = {
+                'positions': star_positions,
+                'phases': np.random.uniform(0, 2*np.pi, len(star_positions)),  # Phase offsets
+                'frequencies': np.random.uniform(0.1, 0.3, len(star_positions))  # Blink frequencies (Hz)
+            }
         
-        # Initialize color arrays
-        r_values = np.zeros(strip_length)
-        g_values = np.zeros(strip_length)
-        b_values = np.zeros(strip_length)
-        a_values = np.zeros(strip_length)
+        stars_data = instate['stars'][strip_id]
         
-        # Set colors for inside sun (vectorized)
-        if np.any(inside_sun_mask):
-            # Calculate intensity based on normalized distance
-            intensities = 1.0 - normalized_distances[inside_sun_mask] ** 2
-            
-            # Set sun colors - warm yellow/orange
-            r_values[inside_sun_mask] = 1.0
-            g_values[inside_sun_mask] = 0.7 + (0.3 * intensities)
-            b_values[inside_sun_mask] = 0.2 + (0.3 * intensities)
-            a_values[inside_sun_mask] = 0.8 + (0.2 * intensities)
+        # Initialize buffer (start with black)
+        buffer[:] = [0.0, 0.0, 0.0, 0.0]
         
-        # Set colors for outside sun (vectorized)
-        if np.any(outside_sun_mask):
-            # Start with sky colors
-            r_values[outside_sun_mask] = sky_r
-            g_values[outside_sun_mask] = sky_g
-            b_values[outside_sun_mask] = sky_b
+        if phase == 'night':
+            # Pure night phase - only stars
+            star_positions = stars_data['positions']
+            star_phases = stars_data['phases']
+            star_frequencies = stars_data['frequencies']
             
-            # Apply sun glow effect (vectorized)
-            glow_mask = (distances > sun_radius) & (distances < sun_radius * 2)
-            if np.any(glow_mask):
-                glow_factors = np.maximum(0, np.minimum(0.5, 1.0 - (distances[glow_mask] - sun_radius) / sun_radius))
+            # Calculate star brightness using sine waves
+            star_brightness = 0.3 + 0.4 * np.sin(2 * np.pi * star_frequencies * current_time + star_phases)
+            star_brightness = np.clip(star_brightness, 0.1, 0.7)  # Ensure minimum visibility
+            
+            # Set star colors (white/slightly blue)
+            buffer[star_positions, 0] = 0.8 * star_brightness  # Red
+            buffer[star_positions, 1] = 0.9 * star_brightness  # Green  
+            buffer[star_positions, 2] = 1.0 * star_brightness  # Blue
+            buffer[star_positions, 3] = star_brightness        # Alpha
+            
+        elif phase == 'sunrise':
+            # Gradual transition from night to day
+            if phase_progress < 0.3:
+                # Early sunrise - just starting to lighten, stars still prominent
+                early_progress = phase_progress / 0.3
                 
-                # Blend with sun colors
-                r_values[glow_mask] = r_values[glow_mask] * (1 - glow_factors) + 1.0 * glow_factors
-                g_values[glow_mask] = g_values[glow_mask] * (1 - glow_factors) + 0.7 * glow_factors
-                b_values[glow_mask] = b_values[glow_mask] * (1 - glow_factors) + 0.2 * glow_factors
+                # Very subtle sky lightening
+                sky_alpha = 0.1 * early_progress
+                sky_r = 0.05 * early_progress
+                sky_g = 0.03 * early_progress  
+                sky_b = 0.08 * early_progress
+                
+                # Set very dim sky glow
+                buffer[:, 0] = sky_r
+                buffer[:, 1] = sky_g
+                buffer[:, 2] = sky_b
+                buffer[:, 3] = sky_alpha
+                
+                # Stars still very prominent (fade only slightly)
+                star_alpha = 1.0 - (0.2 * early_progress)
+                
+            elif phase_progress < 0.7:
+                # Mid sunrise - sun starts to appear, more sky color
+                mid_progress = (phase_progress - 0.3) / 0.4
+                
+                # More noticeable sky colors
+                sky_r = 0.05 + (0.4 * mid_progress)
+                sky_g = 0.03 + (0.2 * mid_progress)
+                sky_b = 0.08 + (0.1 * mid_progress)
+                sky_alpha = 0.1 + (0.3 * mid_progress)
+                
+                # Set base sky colors
+                buffer[:, 0] = sky_r
+                buffer[:, 1] = sky_g
+                buffer[:, 2] = sky_b
+                buffer[:, 3] = sky_alpha
+                
+                # Stars start to fade more noticeably
+                star_alpha = 0.8 - (0.6 * mid_progress)
+                
+            else:
+                # Late sunrise - full sun emergence, final star fade
+                late_progress = (phase_progress - 0.7) / 0.3
+                
+                # Full sunrise sky colors
+                sky_r = 0.45 + (0.45 * late_progress)
+                sky_g = 0.23 + (0.47 * late_progress)  
+                sky_b = 0.18 + (0.62 * late_progress)
+                
+                # Set sky colors for all pixels first
+                buffer[:, 0] = sky_r
+                buffer[:, 1] = sky_g
+                buffer[:, 2] = sky_b
+                buffer[:, 3] = 0.4 + 0.2 * late_progress
+                
+                # Final star fade
+                star_alpha = 0.2 * (1.0 - late_progress)
             
-            # Set alpha for outside sun
-            a_values[outside_sun_mask] = 0.6 - (0.2 * normalized_distances[outside_sun_mask])
-        
+            # Always render sun if it has size (remove show_sun logic)
+            if sun_radius > 0:
+                positions = np.arange(strip_length)
+                distances = np.abs(positions - sun_center)
+                inside_sun_mask = distances <= sun_radius
+                
+                if np.any(inside_sun_mask):
+                    normalized_distances = distances[inside_sun_mask] / sun_radius
+                    intensities = 1.0 - normalized_distances ** 2
+                    
+                    # Sun brightness increases with phase progress
+                    sun_brightness = min(1.0, phase_progress * 1.5)
+                    
+                    buffer[inside_sun_mask, 0] = 1.0 * sun_brightness
+                    buffer[inside_sun_mask, 1] = (0.7 + (0.3 * intensities)) * sun_brightness
+                    buffer[inside_sun_mask, 2] = (0.2 + (0.3 * intensities)) * sun_brightness
+                    buffer[inside_sun_mask, 3] = (0.8 + (0.2 * intensities)) * sun_brightness
+            
+            # Apply stars throughout all sunrise sub-phases
+            if star_alpha > 0.01:
+                star_positions = stars_data['positions']
+                star_phases = stars_data['phases']
+                star_frequencies = stars_data['frequencies']
+                
+                star_brightness = 0.3 + 0.4 * np.sin(2 * np.pi * star_frequencies * current_time + star_phases)
+                star_brightness = np.clip(star_brightness * star_alpha, 0.0, 0.7)
+                
+                # Only show stars not covered by sun
+                if sun_radius > 0:
+                    positions = np.arange(strip_length)
+                    distances = np.abs(positions - sun_center)
+                    sun_coverage_mask = distances <= sun_radius
+                    visible_stars = ~np.isin(star_positions, np.where(sun_coverage_mask)[0])
+                else:
+                    # No sun to worry about
+                    visible_stars = np.ones(len(star_positions), dtype=bool)
+                
+                visible_star_positions = star_positions[visible_stars]
+                visible_star_brightness = star_brightness[visible_stars]
+                
+                if len(visible_star_positions) > 0:
+                    # Blend stars with existing sky
+                    buffer[visible_star_positions, 0] = np.maximum(buffer[visible_star_positions, 0], 0.8 * visible_star_brightness)
+                    buffer[visible_star_positions, 1] = np.maximum(buffer[visible_star_positions, 1], 0.9 * visible_star_brightness)
+                    buffer[visible_star_positions, 2] = np.maximum(buffer[visible_star_positions, 2], 1.0 * visible_star_brightness)
+                    buffer[visible_star_positions, 3] = np.maximum(buffer[visible_star_positions, 3], visible_star_brightness)            
+
+        elif phase == 'day':
+            # Full day phase
+            positions = np.arange(strip_length)
+            distances = np.abs(positions - sun_center)
+            inside_sun_mask = distances <= sun_radius
+            
+            # Day sky colors (light blue)
+            sky_r = 0.3
+            sky_g = 0.6
+            sky_b = 0.9
+            
+            # Set sun colors
+            if np.any(inside_sun_mask):
+                normalized_distances = distances[inside_sun_mask] / sun_radius
+                intensities = 1.0 - normalized_distances ** 2
+                
+                buffer[inside_sun_mask, 0] = 1.0
+                buffer[inside_sun_mask, 1] = 0.7 + (0.3 * intensities)
+                buffer[inside_sun_mask, 2] = 0.2 + (0.3 * intensities)
+                buffer[inside_sun_mask, 3] = 0.8 + (0.2 * intensities)
+            
+            # Set sky colors
+            outside_sun_mask = ~inside_sun_mask
+            if np.any(outside_sun_mask):
+                buffer[outside_sun_mask, 0] = sky_r
+                buffer[outside_sun_mask, 1] = sky_g
+                buffer[outside_sun_mask, 2] = sky_b
+                buffer[outside_sun_mask, 3] = 0.6
+                
+        elif phase == 'sunset':
+            # Transition from day to night (mirror of sunrise)
+            positions = np.arange(strip_length)
+            
+            # Sunset sky colors (reverse of sunrise)
+            if phase_progress < 0.3:
+                # Early sunset - still mostly day colors
+                early_progress = phase_progress / 0.3
+                sky_r = 0.3 + (0.6 * early_progress)
+                sky_g = 0.6 - (0.1 * early_progress)
+                sky_b = 0.9 - (0.7 * early_progress)
+                sky_alpha = 0.6
+            elif phase_progress < 0.7:
+                # Mid sunset - orange colors
+                mid_progress = (phase_progress - 0.3) / 0.4
+                sky_r = 0.9 - (0.45 * mid_progress)
+                sky_g = 0.5 - (0.17 * mid_progress)
+                sky_b = 0.2 - (0.12 * mid_progress)
+                sky_alpha = 0.6 - (0.2 * mid_progress)
+            else:
+                # Late sunset - fade to black
+                late_progress = (phase_progress - 0.7) / 0.3
+                sky_r = 0.45 * (1.0 - late_progress)
+                sky_g = 0.33 * (1.0 - late_progress)
+                sky_b = 0.08 * (1.0 - late_progress)
+                sky_alpha = 0.4 * (1.0 - late_progress)
+            
+            # Set sky colors first
+            buffer[:, 0] = sky_r
+            buffer[:, 1] = sky_g
+            buffer[:, 2] = sky_b
+            buffer[:, 3] = sky_alpha
+            
+            # Always render sun if it has size
+            if sun_radius > 0:
+                distances = np.abs(positions - sun_center)
+                inside_sun_mask = distances <= sun_radius
+                
+                if np.any(inside_sun_mask):
+                    normalized_distances = distances[inside_sun_mask] / sun_radius
+                    intensities = 1.0 - normalized_distances ** 2
+                    
+                    # Sun brightness decreases as it shrinks
+                    sun_brightness = 1.0 - phase_progress
+                    
+                    buffer[inside_sun_mask, 0] = 1.0 * sun_brightness
+                    buffer[inside_sun_mask, 1] = (0.7 + (0.3 * intensities)) * sun_brightness
+                    buffer[inside_sun_mask, 2] = (0.2 + (0.3 * intensities)) * sun_brightness
+                    buffer[inside_sun_mask, 3] = (0.8 + (0.2 * intensities)) * sun_brightness
+            
+            # Add fading-in stars (start appearing in mid-sunset)
+            star_alpha = 0.0
+            if phase_progress > 0.3:
+                star_alpha = (phase_progress - 0.3) / 0.7
+            
+            if star_alpha > 0.01:
+                star_positions = stars_data['positions']
+                star_phases = stars_data['phases']
+                star_frequencies = stars_data['frequencies']
+                
+                star_brightness = 0.3 + 0.4 * np.sin(2 * np.pi * star_frequencies * current_time + star_phases)
+                star_brightness = np.clip(star_brightness * star_alpha, 0.0, 0.7)
+                
+                # Only show stars not covered by sun
+                if sun_radius > 0:
+                    distances = np.abs(positions - sun_center)
+                    sun_coverage_mask = distances <= sun_radius
+                    visible_stars = ~np.isin(star_positions, np.where(sun_coverage_mask)[0])
+                else:
+                    visible_stars = np.ones(len(star_positions), dtype=bool)
+                
+                visible_star_positions = star_positions[visible_stars]
+                visible_star_brightness = star_brightness[visible_stars]
+                
+                if len(visible_star_positions) > 0:
+                    # Blend stars with existing sky
+                    buffer[visible_star_positions, 0] = np.maximum(buffer[visible_star_positions, 0], 0.8 * visible_star_brightness)
+                    buffer[visible_star_positions, 1] = np.maximum(buffer[visible_star_positions, 1], 0.9 * visible_star_brightness)
+                    buffer[visible_star_positions, 2] = np.maximum(buffer[visible_star_positions, 2], 1.0 * visible_star_brightness)
+                    buffer[visible_star_positions, 3] = np.maximum(buffer[visible_star_positions, 3], visible_star_brightness)        
         # Add gentle ambient variation for more natural look
-        variations = 0.05 * np.sin(positions * 0.1 + current_time * 0.5)
-        r_values += variations
-        g_values += variations
-        b_values += variations
+        if phase != 'night':
+            positions = np.arange(strip_length)
+            variations = 0.05 * np.sin(positions * 0.1 + current_time * 0.5)
+            buffer[:, :3] += variations[:, np.newaxis]
         
-        # Ensure color values are in valid range (vectorized)
-        r_values = np.clip(r_values, 0.0, 1.0)
-        g_values = np.clip(g_values, 0.0, 1.0)
-        b_values = np.clip(b_values, 0.0, 1.0)
-        a_values = np.clip(a_values, 0.0, 1.0)
+        # Ensure color values are in valid range
+        buffer[:, :3] = np.clip(buffer[:, :3], 0.0, 1.0)
+        buffer[:, 3] = np.clip(buffer[:, 3], 0.0, 1.0)
         
         # Apply final fade alpha
-        a_values *= fade_alpha
-        
-        # Combine into RGBA array and set buffer
-        rgba_values = np.stack([r_values, g_values, b_values, a_values], axis=1)
-        buffer[:] = rgba_values
+        buffer[:, 3] *= fade_alpha
