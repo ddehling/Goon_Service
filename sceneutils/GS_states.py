@@ -698,7 +698,7 @@ def GS_curious_playful(instate, outstate):
         # Convert strip_id to number for color variation
         strip_hash = hash(strip_id) % len(colors)
         
-        for wave_idx in range(3):
+        for wave_idx in range(4):
             # Each wave moves at different speed and uses different color
             wave_speed = 20 + wave_idx * 15  # pixels per second
             wave_width = strip_length * 0.3
@@ -731,9 +731,9 @@ def GS_curious_playful(instate, outstate):
         
         # Add occasional sparkles
         sparkle_mask = np.random.random(strip_length) < 0.01
-        if np.any(sparkle_mask):
-            buffer[sparkle_mask, :3] = 1.0  # White sparkles
-            buffer[sparkle_mask, 3] = np.maximum(buffer[sparkle_mask, 3], 0.8)
+        #if np.any(sparkle_mask):
+        ##    buffer[sparkle_mask, :3] = 1.0  # White sparkles
+        #    buffer[sparkle_mask, 3] = np.maximum(buffer[sparkle_mask, 3], 0.8)*0.3
 
 def GS_forest(instate, outstate):
     """

@@ -2,6 +2,7 @@ import numpy as np
 import time
 from corefunctions.Events import EventScheduler
 from sceneutils.GS_states import *  # noqa: F403
+from sceneutils.OTO_emotions import *  # noqa: F403
 from PyQt5.QtWidgets import QApplication 
 from corefunctions.soundinput import MicrophoneAnalyzer
  # noqa: F403
@@ -77,8 +78,9 @@ if __name__ == "__main__":
     # Start with summer bloom weather
    
 
-    #env_system.scheduler.schedule_event(0, 60, GS_forest)  # noqa: F405
-    env_system.scheduler.schedule_event(0, 1200, GS_sunrise)
+    #env_system.scheduler.schedule_event(45, 45, GS_forest)  # noqa: F405
+    env_system.scheduler.schedule_event(0, 60, GS_forest)
+    #env_system.scheduler.schedule_event(15, 30, GS_tingles)
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()

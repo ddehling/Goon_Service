@@ -547,7 +547,7 @@ def OTO_sad_theme(instate, outstate):
         return
 
     # Get sad level from outstate (default to 0)
-    sad_level = outstate.get('control_sad', 0.0)/100
+    sad_level = 1
     
     # Apply alpha level to the generator
     buffers.generator_alphas[name] = sad_level
@@ -1086,7 +1086,7 @@ def OTO_angry_theme(instate, outstate):
         return
 
     # Get angry level from outstate (default to 0)
-    angry_level = outstate.get('control_angry', 0.0)/100
+    angry_level = 1
     
     # Apply alpha level to the generator
     buffers.generator_alphas[name] = angry_level
@@ -1944,7 +1944,7 @@ def OTO_passionate_floral(instate, outstate):
         return
 
     # Get passionate_curious level from outstate (default to 0)
-    passionate_level = outstate.get('control_passionate', 0.0)/100
+    passionate_level = 1
     
     # Apply alpha level to the generator
     buffers.generator_alphas[name] = passionate_level
@@ -2805,7 +2805,7 @@ def OTO_contemplative_cosmic(instate, outstate):
         return
 
     # Get contemplative level from outstate (default to 0)
-    contemplative_level = outstate.get('control_contemplative', 0.0)/100
+    contemplative_level = 1
     
     # Apply alpha level to the generator
     buffers.generator_alphas[name] = contemplative_level
@@ -3417,7 +3417,7 @@ def OTO_neutral_positive(instate, outstate):
         return
 
     # Get neutral level from outstate (default to 0)
-    neutral_level = outstate.get('control_neutral', 0.0)/100
+    neutral_level = 1
     
     # Apply alpha level to the generator
     buffers.generator_alphas[name] = neutral_level

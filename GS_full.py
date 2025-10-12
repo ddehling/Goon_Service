@@ -16,7 +16,7 @@ class EnvironmentalSystem:
         self.transition_start = 0
         self.progress = 0
         self.video_files = [
-            "/home/dieter/Videos/DeadlyPrey1988vhsrip_TryFile.com_.avi",
+            "/home/dieter/Videos/2025.10.02 NatureSmut - Edit.mp4",
             "/home/dieter/Videos/The.Midnight.Meat.Train.R5.2008.avi",
         ]
         self.VLC = VLCController(self.video_files)
