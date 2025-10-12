@@ -895,6 +895,7 @@ def GS_sunrise(instate, outstate):
     Enhanced sunrise pattern with night phase featuring slowly blinking stars.
     Cycle: Night -> Sunrise -> Day -> Sunset -> Night
     During night phase, shows ~60 randomly placed, slowly blinking stars per strip.
+    Sun only appears in the middle 6 strips (Line_5 through Line_10).
     """
     name = 'sunrise'
     buffers = outstate['buffers']
@@ -919,6 +920,9 @@ def GS_sunrise(instate, outstate):
             [0.983, 0.660, 0.635],    # Pure blue
             [0.050, 0.932, 0.463],    # Pure magenta
         ])
+        
+        # Define middle 6 strips that will show the sun
+        instate['sun_strips'] = {'Line_5', 'Line_6', 'Line_7', 'Line_8', 'Line_9', 'Line_10'}
         
         return
 
@@ -971,33 +975,41 @@ def GS_sunrise(instate, outstate):
     # Process each strip
     for strip_id, buffer in pattern_buffers.items():
         strip_length = len(buffer)
-        # Calculate continuous sun position and size
-        # Calculate continuous sun position and size
-        max_position = min(275, strip_length - 1)
         
-        if phase == 'night':
-            sun_center = 0
-            sun_radius = 0
-        elif phase == 'sunrise':
-            # Sun grows from pixel 0 outward
-            sun_radius = max(1, int(40 * phase_progress))  # Radius grows with progress
-            sun_center = sun_radius - 1  # Center positioned so left edge touches pixel 0
-            # As it grows, it also moves toward final position
-            target_center = int(max_position * 0.85)  # Target center position
-            sun_center = int((sun_radius - 1) + (target_center - (sun_radius - 1)) * phase_progress)
-        elif phase == 'day':
-            # Sun at full size, centered around middle of strip
-            sun_center = int(max_position * 0.85)
-            sun_radius = 40*(1+(np.sin(phase_progress*np.pi)))
-        elif phase == 'sunset':
-            # Sun shrinks back toward pixel 0 (reverse of sunrise)
-            shrink_progress = 1.0 - 1.5*phase_progress  # 1.0 to 0.0 during sunset
-            sun_radius = max(1, int(40 * shrink_progress)) if shrink_progress > 0 else 0
-            if sun_radius > 0:
-                target_center = int(max_position * 0.85)
-                sun_center = int((sun_radius - 1) + (target_center - (sun_radius - 1)) * shrink_progress)
-            else:
+        # Check if this strip should show the sun
+        show_sun_on_this_strip = strip_id in instate['sun_strips']
+        
+        # Calculate continuous sun position and size (only for sun strips)
+        if show_sun_on_this_strip:
+            max_position = min(275, strip_length - 1)
+            
+            if phase == 'night':
                 sun_center = 0
+                sun_radius = 0
+            elif phase == 'sunrise':
+                # Sun grows from pixel 0 outward
+                sun_radius = max(1, int(40 * phase_progress))  # Radius grows with progress
+                sun_center = sun_radius - 1  # Center positioned so left edge touches pixel 0
+                # As it grows, it also moves toward final position
+                target_center = int(max_position * 0.85)  # Target center position
+                sun_center = int((sun_radius - 1) + (target_center - (sun_radius - 1)) * phase_progress)
+            elif phase == 'day':
+                # Sun at full size, centered around middle of strip
+                sun_center = int(max_position * 0.85)
+                sun_radius = 40*(1+(np.sin(phase_progress*np.pi)))
+            elif phase == 'sunset':
+                # Sun shrinks back toward pixel 0 (reverse of sunrise)
+                shrink_progress = 1.0 - 1.5*phase_progress  # 1.0 to 0.0 during sunset
+                sun_radius = max(1, int(40 * shrink_progress)) if shrink_progress > 0 else 0
+                if sun_radius > 0:
+                    target_center = int(max_position * 0.85)
+                    sun_center = int((sun_radius - 1) + (target_center - (sun_radius - 1)) * shrink_progress)
+                else:
+                    sun_center = 0
+        else:
+            # Non-sun strips don't have a sun
+            sun_radius = 0
+            sun_center = 0
         
         # Initialize stars for this strip if needed
         if strip_id not in instate['stars']:
@@ -1042,7 +1054,6 @@ def GS_sunrise(instate, outstate):
             buffer[star_positions, 1] = star_colors[:, 1] * star_brightness  # Green  
             buffer[star_positions, 2] = star_colors[:, 2] * star_brightness  # Blue
             buffer[star_positions, 3] = star_brightness                      # Alpha
-     # Alpha
             
         elif phase == 'sunrise':
             # Gradual transition from night to day
@@ -1103,8 +1114,8 @@ def GS_sunrise(instate, outstate):
                 star_alpha = 0.2 * (1.0 - late_progress)
 
             
-            # Always render sun if it has size (remove show_sun logic)
-            if sun_radius > 0:
+            # Only render sun if this strip should show it and it has size
+            if show_sun_on_this_strip and sun_radius > 0:
                 positions = np.arange(strip_length)
                 distances = np.abs(positions - sun_center)
                 inside_sun_mask = distances <= sun_radius
@@ -1131,8 +1142,8 @@ def GS_sunrise(instate, outstate):
                 star_brightness = 0.3 + 0.4 * np.sin(2 * np.pi * star_frequencies * current_time + star_phases)
                 star_brightness = np.clip(star_brightness * star_alpha, 0.0, 0.7)
                 
-                # Only show stars not covered by sun
-                if sun_radius > 0:
+                # Only show stars not covered by sun (if this strip has sun)
+                if show_sun_on_this_strip and sun_radius > 0:
                     positions = np.arange(strip_length)
                     distances = np.abs(positions - sun_center)
                     sun_coverage_mask = distances <= sun_radius
@@ -1156,26 +1167,32 @@ def GS_sunrise(instate, outstate):
         elif phase == 'day':
             # Full day phase
             positions = np.arange(strip_length)
-            distances = np.abs(positions - sun_center)
-            inside_sun_mask = distances <= sun_radius
             
             # Day sky colors (light blue)
             sky_r = 0.3
             sky_g = 0.6
             sky_b = 0.9
             
-            # Set sun colors
-            if np.any(inside_sun_mask):
-                normalized_distances = distances[inside_sun_mask] / sun_radius
-                intensities = 1.0 - normalized_distances ** 2
+            # Set sun colors (only on sun strips)
+            if show_sun_on_this_strip and sun_radius > 0:
+                distances = np.abs(positions - sun_center)
+                inside_sun_mask = distances <= sun_radius
                 
-                buffer[inside_sun_mask, 0] = 1.0
-                buffer[inside_sun_mask, 1] = 0.7 + (0.3 * intensities)
-                buffer[inside_sun_mask, 2] = 0.2 + (0.3 * intensities)
-                buffer[inside_sun_mask, 3] = 0.8 + (0.2 * intensities)
+                if np.any(inside_sun_mask):
+                    normalized_distances = distances[inside_sun_mask] / sun_radius
+                    intensities = 1.0 - normalized_distances ** 2
+                    
+                    buffer[inside_sun_mask, 0] = 1.0
+                    buffer[inside_sun_mask, 1] = 0.7 + (0.3 * intensities)
+                    buffer[inside_sun_mask, 2] = 0.2 + (0.3 * intensities)
+                    buffer[inside_sun_mask, 3] = 0.8 + (0.2 * intensities)
+                
+                # Set sky colors for non-sun areas
+                outside_sun_mask = ~inside_sun_mask
+            else:
+                # No sun on this strip, all sky
+                outside_sun_mask = np.ones(strip_length, dtype=bool)
             
-            # Set sky colors
-            outside_sun_mask = ~inside_sun_mask
             if np.any(outside_sun_mask):
                 buffer[outside_sun_mask, 0] = sky_r
                 buffer[outside_sun_mask, 1] = sky_g
@@ -1215,8 +1232,8 @@ def GS_sunrise(instate, outstate):
             buffer[:, 2] = sky_b
             buffer[:, 3] = sky_alpha
             
-            # Always render sun if it has size
-            if sun_radius > 0:
+            # Only render sun if this strip should show it and it has size
+            if show_sun_on_this_strip and sun_radius > 0:
                 distances = np.abs(positions - sun_center)
                 inside_sun_mask = distances <= sun_radius
                 
@@ -1246,8 +1263,8 @@ def GS_sunrise(instate, outstate):
                 star_brightness = 0.3 + 0.4 * np.sin(2 * np.pi * star_frequencies * current_time + star_phases)
                 star_brightness = np.clip(star_brightness * star_alpha, 0.0, 0.7)
                 
-                # Only show stars not covered by sun
-                if sun_radius > 0:
+                # Only show stars not covered by sun (if this strip has sun)
+                if show_sun_on_this_strip and sun_radius > 0:
                     distances = np.abs(positions - sun_center)
                     sun_coverage_mask = distances <= sun_radius
                     visible_stars = ~np.isin(star_positions, np.where(sun_coverage_mask)[0])
@@ -1278,3 +1295,127 @@ def GS_sunrise(instate, outstate):
         
         # Apply final fade alpha
         buffer[:, 3] *= fade_alpha
+def GS_hypnotic_spiral(instate, outstate):
+    """
+    Hypnotic spiral pattern that creates rotating spiral bands using pixel position.
+    Uses strip ID as horizontal position, pixel index as vertical position.
+    Blue-gray spiral bands with 80% alpha, alternating with dark 15-pixel bands.
+    """
+    name = 'hypnotic_spiral'
+    buffers = outstate['buffers']
+
+    if instate['count'] == 0:
+        buffers.register_generator(name)
+        return
+
+    if instate['count'] == -1:
+        buffers.generator_alphas[name] = 0
+        return
+
+    sound_level = outstate.get('sound_level', 1.0)
+    
+    # Calculate fade in/out over first and last 5 seconds
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
+    
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
+    
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
+        return
+    
+    current_time = outstate['current_time']
+    pattern_buffers = buffers.get_all_buffers(name)
+    
+    # Spiral parameters
+    spiral_speed = 4  # Rotation speed
+    band_width = 30     # Width of both bright and dark bands in pixels
+    spiral_tightness = 0.03  # How tightly wound the spiral is
+    
+    # Blue-gray color (HSV)
+    spiral_hue = 0.6      # Blue
+    spiral_saturation = 0.3  # Low saturation for gray tint
+    spiral_value = 0.7    # Medium brightness
+    spiral_alpha = 0.8    # 80% alpha as requested
+    
+    # Convert to RGB
+    spiral_r, spiral_g, spiral_b = hsv_to_rgb_vectorized(spiral_hue, spiral_saturation, spiral_value)
+    
+    for strip_id, buffer in pattern_buffers.items():
+        strip_length = len(buffer)
+        
+        # Initialize buffer to transparent
+        buffer[:] = [0.0, 0.0, 0.0, 0.0]
+        
+        # Extract numerical position from strip ID
+        # Handle different strip ID formats
+        try:
+            if '_' in strip_id:
+                # Format like "Line_5" -> extract 5
+                strip_number = int(strip_id.split('_')[-1])
+            else:
+                # Try to extract any numbers from the string
+                import re
+                numbers = re.findall(r'\d+', strip_id)
+                strip_number = int(numbers[0]) if numbers else hash(strip_id) % 20
+        except:
+            # Fallback: use hash of strip_id
+            strip_number = hash(strip_id) % 20
+        
+        # Use strip number as x-coordinate, pixel index as y-coordinate
+        x_pos = strip_number * 10  # Scale for better spiral effect
+        
+        # Calculate spiral parameters for each pixel
+        positions = np.arange(strip_length)
+        y_positions = positions  # Pixel index as vertical position
+        
+        # Calculate distance from origin and angle for spiral
+        radii = np.sqrt(x_pos**2 + y_positions**2)
+        base_angles = np.arctan2(y_positions, x_pos)
+        
+        # Create spiral by adding radius-dependent rotation
+        # This makes the spiral "wind up" as it goes outward
+        spiral_angles = base_angles + (radii * spiral_tightness) + (current_time * spiral_speed)
+        
+        # Convert spiral position to linear distance along the spiral
+        # This gives us a consistent measure for creating bands
+        spiral_distance = radii + (spiral_angles * 10)  # Scale angle contribution
+        
+        # Create alternating bands every 30 pixels (15 bright + 15 dark)
+        band_period = band_width * 2  # 30 pixels total per cycle
+        band_phase = (spiral_distance % band_period) / band_period
+        
+        # Create mask for bright regions (first half of each period)
+        bright_mask = band_phase < 0.5
+        
+        # Apply spiral color to pixels in the bright bands
+        if np.any(bright_mask):
+            buffer[bright_mask, 0] = spiral_r
+            buffer[bright_mask, 1] = spiral_g  
+            buffer[bright_mask, 2] = spiral_b
+            buffer[bright_mask, 3] = spiral_alpha * fade_alpha
+        
+        # Dark regions remain transparent (already initialized to 0)
+        
+        # Optional: Add some smooth transitions at band edges
+        # Create soft edges by checking proximity to band boundaries
+        edge_softness = 1.0  # pixels
+        if edge_softness > 0:
+            # Distance to nearest band edge
+            edge_distance = np.minimum(
+                band_phase * band_period,  # Distance to start of band
+                (1 - band_phase) * band_period  # Distance to end of band
+            )
+            
+            # Only apply to pixels near edges of bright bands
+            edge_mask = bright_mask & (edge_distance < edge_softness)
+            
+            if np.any(edge_mask):
+                # Smooth alpha transition
+                edge_alpha = edge_distance[edge_mask] / edge_softness
+                buffer[edge_mask, 3] *= edge_alpha

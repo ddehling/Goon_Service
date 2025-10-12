@@ -78,8 +78,8 @@ if __name__ == "__main__":
     # Start with summer bloom weather
    
 
-    #env_system.scheduler.schedule_event(45, 45, GS_forest)  # noqa: F405
-    env_system.scheduler.schedule_event(0, 60, GS_forest)
+    env_system.scheduler.schedule_event(0, 60, GS_forest)  # noqa: F405
+    env_system.scheduler.schedule_event(0, 60, GS_hypnotic_spiral)
     #env_system.scheduler.schedule_event(15, 30, GS_tingles)
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
