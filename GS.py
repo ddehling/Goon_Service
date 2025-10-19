@@ -74,12 +74,14 @@ class EnvironmentalSystem:
 if __name__ == "__main__":
     scheduler = EventScheduler()
     env_system = EnvironmentalSystem(scheduler)
-    scheduler.setup_visualizer(False) 
+    scheduler.setup_visualizer(True) 
     # Start with summer bloom weather
    
 
     env_system.scheduler.schedule_event(0, 600, GS_align)  # noqa: F405
     #env_system.scheduler.schedule_event(0, 600, GS_hypnotic_spiral)
+    env_system.scheduler.schedule_event(0, 120, GS_hot_tub)  # noqa: F405
+    #env_system.scheduler.schedule_event(0, 60, GS_hypnotic_spiral)
     #env_system.scheduler.schedule_event(15, 30, GS_tingles)
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
