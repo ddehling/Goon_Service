@@ -1419,3 +1419,80 @@ def GS_hypnotic_spiral(instate, outstate):
                 # Smooth alpha transition
                 edge_alpha = edge_distance[edge_mask] / edge_softness
                 buffer[edge_mask, 3] *= edge_alpha
+
+def GS_align(instate, outstate):
+    """
+    Alignment pattern with 10 colors, each 10 pixels wide, repeating across strips.
+    Creates a consistent color band pattern for alignment testing.
+    """
+    name = 'align'
+    buffers = outstate['buffers']
+
+    if instate['count'] == 0:
+        buffers.register_generator(name)
+        return
+
+    if instate['count'] == -1:
+        buffers.generator_alphas[name] = 0
+        return
+
+    sound_level = outstate.get('sound_level', 1.0)
+    
+    # Calculate fade in/out over first and last 5 seconds
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
+    
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
+    
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
+        return
+    
+    current_time = outstate['current_time']
+    pattern_buffers = buffers.get_all_buffers(name)
+    
+    # Define 10 distinct colors evenly spaced around the color wheel (HSV)
+    colors_hsv = np.array([
+        [0.0, 1.0, 1.0],    # Red
+        [0.1, 1.0, 1.0],    # Orange  
+        [0.17, 1.0, 1.0],   # Yellow
+        [0.25, 1.0, 1.0],   # Yellow-Green
+        [0.33, 1.0, 1.0],   # Green
+        [0.5, 1.0, 1.0],    # Cyan
+        [0.58, 1.0, 1.0],   # Light Blue
+        [0.67, 1.0, 1.0],   # Blue
+        [0.75, 1.0, 1.0],   # Purple
+        [0.83, 1.0, 1.0],   # Magenta
+    ])
+    
+    # Convert all colors to RGB
+    colors_rgb = np.zeros((10, 3))
+    for i, (h, s, v) in enumerate(colors_hsv):
+        r, g, b = hsv_to_rgb_vectorized(h, s, v)
+        colors_rgb[i] = [r, g, b]
+    
+    # Pattern parameters
+    pixels_per_color = 10
+    pattern_length = len(colors_rgb) * pixels_per_color  # 100 pixels total
+    
+    for strip_id, buffer in pattern_buffers.items():
+        strip_length = len(buffer)
+        
+        # Calculate which color each pixel should be
+        for pixel_idx in range(strip_length):
+            # Find position within the repeating pattern
+            pattern_position = pixel_idx % pattern_length
+            
+            # Determine which color band this pixel belongs to
+            color_index = pattern_position // pixels_per_color
+            
+            # Set the pixel to the appropriate color
+            buffer[pixel_idx, 0] = colors_rgb[color_index, 0]  # Red
+            buffer[pixel_idx, 1] = colors_rgb[color_index, 1]  # Green
+            buffer[pixel_idx, 2] = colors_rgb[color_index, 2]  # Blue
+            buffer[pixel_idx, 3] = fade_alpha
