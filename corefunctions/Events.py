@@ -4,8 +4,8 @@ import numpy as np
 from corefunctions.visualizer3d_qt import create_strip_visualizer
 import corefunctions.ImageToDMX as imdmx  # noqa: F401
 from corefunctions.strips import *  # noqa: F403
-from pythonosc.osc_server import ThreadingOSCUDPServer
-from pythonosc.dispatcher import Dispatcher
+#from pythonosc.osc_server import ThreadingOSCUDPServer
+#from pythonosc.dispatcher import Dispatcher
 import threading
 import queue
 import socket
@@ -93,19 +93,19 @@ class EventScheduler:
             print(f"Initialized {len(self.dmx_senders)} DMX senders")
         
         # Initialize OSC server and message queue
-        self.osc_messages = queue.Queue(maxsize=1000)
-        self.dispatcher = Dispatcher()
-        self.dispatcher.set_default_handler(self._handle_osc)
+        # self.osc_messages = queue.Queue(maxsize=1000)
+        # self.dispatcher = Dispatcher()
+        # self.dispatcher.set_default_handler(self._handle_osc)
         
-        # Start OSC server on port 5005
-        self.osc_server = ThreadingOSCUDPServer(("0.0.0.0", 5005), self.dispatcher)
-        # Set socket options after creation
-        self.osc_server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.osc_server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+        # # Start OSC server on port 5005
+        # self.osc_server = ThreadingOSCUDPServer(("0.0.0.0", 5005), self.dispatcher)
+        # # Set socket options after creation
+        # self.osc_server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # self.osc_server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
         
-        self.osc_thread = threading.Thread(target=self._run_osc_server)
-        self.osc_thread.daemon = True
-        self.osc_thread.start()
+        # self.osc_thread = threading.Thread(target=self._run_osc_server)
+        # self.osc_thread.daemon = True
+        # self.osc_thread.start()
 
     def setup_visualizer(self, enable=True):
         """
