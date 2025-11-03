@@ -2054,10 +2054,29 @@ def GS_shibari(instate, outstate):
         r, g, b = hsv_to_rgb_vectorized(h, s, v)
         bg_colors_rgb[color_name] = (r, g, b)
     
-    # Update rope positions
-    for rope in instate['ropes']:
-        rope['position'] += rope['velocity'] * delta_time
-        rope['position'] = rope['position'] % 360
+    # Update rope positions - VECTORIZED
+    rope_positions = np.array([rope['position'] for rope in instate['ropes']])
+    rope_velocities = np.array([rope['velocity'] for rope in instate['ropes']])
+    rope_positions = (rope_positions + rope_velocities * delta_time) % 360
+    
+    # Update rope dict with new positions
+    for i, rope in enumerate(instate['ropes']):
+        rope['position'] = rope_positions[i]
+    
+    # Pre-compute all rope parameters as arrays ONCE (outside strip loop)
+    rope_colors = np.array([instate['rope_colors'][rope['color_idx']] for rope in instate['ropes']])
+    rope_thicknesses = np.array([rope['thickness'] for rope in instate['ropes']])
+    rope_offsets = np.array([rope['vertical_offset'] for rope in instate['ropes']])
+    rope_phases = np.array([rope['wave_phase'] for rope in instate['ropes']])
+    rope_tightness = np.array([rope['wrap_tightness'] for rope in instate['ropes']])
+    
+    # Pre-extract RGB color components
+    deep_purple_r, deep_purple_g, deep_purple_b = bg_colors_rgb['deep_purple']
+    soft_blue_r, soft_blue_g, soft_blue_b = bg_colors_rgb['soft_blue']
+    lavender_r, lavender_g, lavender_b = bg_colors_rgb['lavender']
+    
+    influence_radius = 100
+    time_shift = 0.5 + 0.5 * np.sin(instate['background_phase'] * 0.5)
     
     # Process each strip
     for strip_id in all_strip_ids:
@@ -2065,15 +2084,11 @@ def GS_shibari(instate, outstate):
         strip_length = len(buffer)
         strip_angle = strip_angles[strip_id]
         
-        positions = np.arange(strip_length, dtype=float)
-        
         # --- START WITH BLACK (transparent) ---
-        buffer[:, 0] = 0.0
-        buffer[:, 1] = 0.0
-        buffer[:, 2] = 0.0
-        buffer[:, 3] = 0.0
+        buffer[:] = 0.0
         
         # --- SPARSE BACKGROUND: Only show in certain areas ---
+        positions = np.arange(strip_length, dtype=float)
         
         # Create multiple wave layers
         wave1 = np.sin(positions * 0.03 + instate['background_phase'] * 2)
@@ -2087,17 +2102,9 @@ def GS_shibari(instate, outstate):
         bg_mask = combined_wave > 0.1  # Only show in ~30% of pixels
         
         if np.any(bg_mask):
-            # Add a global time-based color shift
-            time_shift = 0.5 + 0.5 * np.sin(instate['background_phase'] * 0.5)
-            
             wave_intensity = (combined_wave[bg_mask] - 0.1) / 0.9  # Normalize to 0-1
             
-            # Interpolate between colors
-            deep_purple_r, deep_purple_g, deep_purple_b = bg_colors_rgb['deep_purple']
-            soft_blue_r, soft_blue_g, soft_blue_b = bg_colors_rgb['soft_blue']
-            lavender_r, lavender_g, lavender_b = bg_colors_rgb['lavender']
-            
-            # Mix colors
+            # Mix colors - fully vectorized
             bg_r = (deep_purple_r * (1 - wave_intensity) + soft_blue_r * wave_intensity) * (1 - time_shift * 0.3) + lavender_r * time_shift * 0.3
             bg_g = (deep_purple_g * (1 - wave_intensity) + soft_blue_g * wave_intensity) * (1 - time_shift * 0.3) + lavender_g * time_shift * 0.3
             bg_b = (deep_purple_b * (1 - wave_intensity) + soft_blue_b * wave_intensity) * (1 - time_shift * 0.3) + lavender_b * time_shift * 0.3
@@ -2108,78 +2115,89 @@ def GS_shibari(instate, outstate):
             buffer[bg_mask, 2] = bg_b
             buffer[bg_mask, 3] = 0.8 * wave_intensity  # Fade with intensity
         
-        # --- ROPES: More defined and separated ---
+        # --- ROPES: VECTORIZED CALCULATIONS ---
         
-        for rope in instate['ropes']:
-            # Calculate angular distance from this strip
-            angle_diff = abs(strip_angle - rope['position'])
-            if angle_diff > 180:
-                angle_diff = 360 - angle_diff
+        # Calculate angular distances for ALL ropes at once
+        angle_diffs = np.abs(strip_angle - rope_positions)
+        angle_diffs = np.where(angle_diffs > 180, 360 - angle_diffs, angle_diffs)
+        
+        # Find ropes that influence this strip
+        influential_mask = angle_diffs < influence_radius
+        influential_indices = np.where(influential_mask)[0]
+        
+        if len(influential_indices) == 0:
+            buffer[:, 3] *= fade_alpha
+            continue
+        
+        # Calculate influences for all influential ropes
+        influences = 1.0 - (angle_diffs[influential_indices] / influence_radius)
+        influences = np.clip(influences, 0, 1)
+        
+        # Filter to significant influences
+        significant_mask = influences > 0.1
+        influential_indices = influential_indices[significant_mask]
+        
+        if len(influential_indices) == 0:
+            buffer[:, 3] *= fade_alpha
+            continue
             
-            # Reduced influence radius for more black space between ropes
-            influence_radius = 100  # Reduced from 120 to 50 degrees
+        influences = influences[significant_mask]
+        
+        # Calculate rope centers for all influential ropes
+        wrap_waves = 0.15 * np.sin(strip_angle * rope_tightness[influential_indices] + rope_phases[influential_indices])
+        rope_centers = (rope_offsets[influential_indices] + wrap_waves) % 1.0
+        rope_center_pixels = (rope_centers * strip_length).astype(int)
+        
+        # Calculate effective thicknesses
+        effective_thicknesses = (rope_thicknesses[influential_indices] * influences).astype(int)
+        
+        # Pre-calculate texture base values (shared across all rope pixels)
+        texture_time_component = current_time * 0.5
+        
+        # Process each influential rope
+        for idx, rope_idx in enumerate(influential_indices):
+            effective_thickness = effective_thicknesses[idx]
             
-            if angle_diff < influence_radius:
-                # Steeper falloff for more defined edges
-                influence = (1.0 - (angle_diff / influence_radius))   # Squared for steeper falloff
-                influence = np.clip(influence, 0, 1)
+            if effective_thickness == 0:
+                continue
                 
-                # Only render if influence is significant (creates hard cutoff)
-                if influence > 0.1:
-                    # Calculate vertical position on strip with wrapping wave
-                    base_pos = rope['vertical_offset']
-                    wrap_wave = 0.15 * np.sin(strip_angle * rope['wrap_tightness'] + rope['wave_phase'])
-                    rope_center = (base_pos + wrap_wave) % 1.0
-                    rope_center_pixel = int(rope_center * strip_length)
-                    
-                    # Calculate rope thickness with influence fade
-                    effective_thickness = int(rope['thickness'] * influence)
-                    
-                    if effective_thickness > 0:
-                        # Calculate rope extent
-                        half_thickness = effective_thickness // 2
-                        rope_start = max(0, rope_center_pixel - half_thickness)
-                        rope_end = min(strip_length, rope_center_pixel + half_thickness + 1)
-                        
-                        if rope_end > rope_start:
-                            # Get rope color
-                            h, s, v = instate['rope_colors'][rope['color_idx']]
-                            
-                            # Add texture variation to rope
-                            rope_positions = np.arange(rope_start, rope_end)
-                            texture = 0.9 + 0.1 * np.sin(rope_positions * 0.5 + current_time * 0.5)
-                            texture *= 0.95 + 0.05 * np.sin(rope_positions * 1.3 + rope['wave_phase'])
-                            
-                            # Calculate distance from rope center for gradient
-                            distances = np.abs(rope_positions - rope_center_pixel)
-                            gradient = 1.0 - (distances / (half_thickness + 1)) ** 0.5
-                            gradient = np.clip(gradient, 0, 1)
-                            
-                            # Combine texture and gradient
-                            rope_intensity = texture * gradient * influence
-                            
-                            # Convert to RGB with variation
-                            rope_r, rope_g, rope_b = hsv_to_rgb_vectorized(h, s, v * rope_intensity)
-                            
-                            # Blend rope with background
-                            rope_alpha =  rope_intensity
-                            
-                            buffer[rope_start:rope_end, 0] = (
-                                buffer[rope_start:rope_end, 0] * (1 - rope_alpha) + 
-                                rope_r * rope_alpha
-                            )
-                            buffer[rope_start:rope_end, 1] = (
-                                buffer[rope_start:rope_end, 1] * (1 - rope_alpha) + 
-                                rope_g * rope_alpha
-                            )
-                            buffer[rope_start:rope_end, 2] = (
-                                buffer[rope_start:rope_end, 2] * (1 - rope_alpha) + 
-                                rope_b * rope_alpha
-                            )
-                            buffer[rope_start:rope_end, 3] = np.maximum(
-                                buffer[rope_start:rope_end, 3],
-                                rope_alpha
-                            )
+            influence = influences[idx]
+            rope_center_pixel = rope_center_pixels[idx]
+            half_thickness = effective_thickness // 2
+            rope_start = max(0, rope_center_pixel - half_thickness)
+            rope_end = min(strip_length, rope_center_pixel + half_thickness + 1)
+            
+            if rope_end <= rope_start:
+                continue
+            
+            # Get rope color
+            h, s, v = rope_colors[rope_idx]
+            
+            # VECTORIZED texture and gradient calculations
+            rope_positions_slice = np.arange(rope_start, rope_end)
+            texture = 0.9 + 0.1 * np.sin(rope_positions_slice * 0.5 + texture_time_component)
+            texture *= 0.95 + 0.05 * np.sin(rope_positions_slice * 1.3 + rope_phases[rope_idx])
+            
+            distances = np.abs(rope_positions_slice - rope_center_pixel)
+            gradient = 1.0 - (distances / (half_thickness + 1)) ** 0.5
+            gradient = np.clip(gradient, 0, 1)
+            
+            rope_intensity = texture * gradient * influence
+            
+            # VECTORIZED RGB conversion
+            rope_r, rope_g, rope_b = hsv_to_rgb_vectorized(h, s, v * rope_intensity)
+            
+            rope_alpha = rope_intensity
+            inv_alpha = 1 - rope_alpha
+            
+            # VECTORIZED blending - using in-place operations
+            buffer[rope_start:rope_end, 0] *= inv_alpha
+            buffer[rope_start:rope_end, 0] += rope_r * rope_alpha
+            buffer[rope_start:rope_end, 1] *= inv_alpha
+            buffer[rope_start:rope_end, 1] += rope_g * rope_alpha
+            buffer[rope_start:rope_end, 2] *= inv_alpha
+            buffer[rope_start:rope_end, 2] += rope_b * rope_alpha
+            buffer[rope_start:rope_end, 3] = np.maximum(buffer[rope_start:rope_end, 3], rope_alpha)
         
         # Apply final fade
         buffer[:, 3] *= fade_alpha
