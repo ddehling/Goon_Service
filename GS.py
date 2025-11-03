@@ -78,11 +78,13 @@ if __name__ == "__main__":
     # Start with summer bloom weather
    
 
-    env_system.scheduler.schedule_event(0, 600, GS_align)  # noqa: F405
+    #env_system.scheduler.schedule_event(0, 600, GS_align)  # noqa: F405
     #env_system.scheduler.schedule_event(0, 600, GS_hypnotic_spiral)
-    env_system.scheduler.schedule_event(0, 120, GS_hot_tub)  # noqa: F405
+    #env_system.scheduler.schedule_event(0, 120, GS_hot_tub)  # noqa: F405
     #env_system.scheduler.schedule_event(0, 60, GS_hypnotic_spiral)
+    #env_system.scheduler.schedule_event(0, 60, GS_forest)
     #env_system.scheduler.schedule_event(15, 30, GS_tingles)
+    env_system.scheduler.schedule_event(0, 600, GS_shibari)
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
@@ -98,7 +100,7 @@ if __name__ == "__main__":
             time.sleep(sleep_time)
 
             # Print stats if needed
-            #print(["%.2f" % (1/(time.perf_counter()-lasttime)), "%.2f" % len(scheduler.active_events), len(scheduler.event_queue),"%.3f" %((lasttime-first_time)/3600)])
+            print(["%.2f" % (1/(time.perf_counter()-lasttime)), "%.2f" % len(scheduler.active_events), len(scheduler.event_queue),"%.3f" %((lasttime-first_time)/3600)])
             lasttime = time.perf_counter()
 
     except KeyboardInterrupt:

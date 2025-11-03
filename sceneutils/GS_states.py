@@ -1438,51 +1438,48 @@ def GS_hot_tub(instate, outstate):
         buffers.register_generator(name)
         
         # Initialize parameters
-        instate['flesh_bodies'] = []  # List of moving flesh-toned regions
-        instate['water_phase'] = 0.0  # For water color cycling
-        instate['roiling_phase'] = 0.0  # For enhanced water roiling
-        instate['chaos_phase'] = 0.0  # For chaotic motion
-        instate['bubbles'] = {}  # Moving bubbles per strip
+        instate['flesh_bodies'] = []
+        instate['water_phase'] = 0.0
+        instate['roiling_phase'] = 0.0
+        instate['chaos_phase'] = 0.0
+        instate['bubbles'] = {}
         
-        # Define spatial zones based on circular arrangement from strips.json
-        # The strips form a circle - Line_1 to Line_14
-        # Edge strips (outer edge of hot tub) - more bubbles
+        # Define spatial zones
         instate['edge_strips'] = {'Line_1', 'Line_2', 'Line_12', 'Line_13', 'Line_14'}
-        # Center strips (middle of hot tub) - deeper water effects  
         instate['center_strips'] = {'Line_6', 'Line_7', 'Line_8'}
-        # Transition strips - mix of both
         instate['transition_strips'] = {'Line_3', 'Line_4', 'Line_5', 'Line_9', 'Line_10', 'Line_11'}
         
         # Color palettes (HSV)
         instate['water_colors'] = {
-            'bright_blue': [0.55, 0.8, 0.9],    # Bright blue
-            'hot_pink': [0.92, 0.7, 0.85],      # Hot pink
-            'cyan': [0.5, 0.6, 0.8],            # Cyan
-            'magenta': [0.83, 0.6, 0.8],        # Magenta
+            'bright_blue': [0.55, 0.8, 0.9],
+            'hot_pink': [0.92, 0.7, 0.85],
+            'cyan': [0.5, 0.6, 0.8],
+            'magenta': [0.83, 0.6, 0.8],
         }
         
         instate['flesh_colors'] = {
-            'light_flesh': [0.08, 0.4, 0.9],    # Light flesh tone
-            'medium_flesh': [0.06, 0.5, 0.8],   # Medium flesh tone
-            'tan_flesh': [0.1, 0.6, 0.7],       # Tan flesh tone
-            'pink_flesh': [0.02, 0.3, 0.85],    # Pink flesh tone
+            'light_flesh': [0.08, 0.4, 0.9],
+            'medium_flesh': [0.06, 0.5, 0.8],
+            'tan_flesh': [0.1, 0.6, 0.7],
+            'pink_flesh': [0.02, 0.3, 0.85],
         }
         
-        instate['grey_water'] = [0.0, 0.0, 0.45]  # Greyish water base
+        instate['grey_water'] = [0.0, 0.0, 0.45]
         
-        # Initialize flesh bodies (moving regions) - more bodies for grinding
-        num_bodies = 8  # Increased for more chaos
+        # Initialize flesh bodies
+        num_bodies = 8
+        flesh_color_list = list(instate['flesh_colors'].values())
         for i in range(num_bodies):
             body = {
-                'position': np.random.uniform(0, 360),  # Position in degrees around circle
-                'velocity': np.random.uniform(15, 60),   # Angular speed (degrees/second) - wider range
-                'direction': np.random.choice([-1, 1]),  # Direction around circle
-                'color': list(instate['flesh_colors'].values())[i % len(instate['flesh_colors'])],
-                'size': np.random.uniform(12, 30),       # Angular size in degrees - wider range
-                'bounce_cooldown': 0.0,                 # Prevent rapid bouncing
-                'interaction_intensity': 0.0,           # For grinding effects
-                'mass': np.random.uniform(0.6, 1.4),    # For collision physics - wider range
-                'chaos_factor': np.random.uniform(0.5, 2.0),  # Individual chaos multiplier
+                'position': np.random.uniform(0, 360),
+                'velocity': np.random.uniform(15, 60),
+                'direction': np.random.choice([-1, 1]),
+                'color': flesh_color_list[i % len(flesh_color_list)],
+                'size': np.random.uniform(12, 30),
+                'bounce_cooldown': 0.0,
+                'interaction_intensity': 0.0,
+                'mass': np.random.uniform(0.6, 1.4),
+                'chaos_factor': np.random.uniform(0.5, 2.0),
                 'id': i
             }
             instate['flesh_bodies'].append(body)
@@ -1495,7 +1492,7 @@ def GS_hot_tub(instate, outstate):
 
     sound_level = outstate.get('sound_level', 1.0)
     
-    # Calculate fade in/out over first and last 5 seconds
+    # Calculate fade
     elapsed_time = instate['elapsed_time']
     remaining_time = instate['duration'] - elapsed_time
     
@@ -1514,110 +1511,233 @@ def GS_hot_tub(instate, outstate):
     delta_time = outstate['current_time'] - outstate['last_time']
     pattern_buffers = buffers.get_all_buffers(name)
     
-    # Update phases with chaotic elements
-    instate['water_phase'] += delta_time * (0.4 + 0.3 * np.sin(current_time * 0.7))  # Variable speed
-    instate['roiling_phase'] += delta_time * (2.5 + 1.5 * np.sin(current_time * 1.3))  # Chaotic roiling
-    instate['chaos_phase'] += delta_time * 4.0  # Fast chaos
+    # Update phases
+    instate['water_phase'] += delta_time * (0.4 + 0.3 * np.sin(current_time * 0.7))
+    instate['roiling_phase'] += delta_time * (2.5 + 1.5 * np.sin(current_time * 1.3))
+    instate['chaos_phase'] += delta_time * 4.0
     
-    # Update flesh bodies with collision detection and chaos
+    # --- VECTORIZED BODY PHYSICS ---
     bodies = instate['flesh_bodies']
+    num_bodies = len(bodies)
     
-    # Add chaotic forces to all bodies
+    # Extract body data into arrays for vectorized operations
+    positions = np.array([b['position'] for b in bodies])
+    velocities = np.array([b['velocity'] for b in bodies])
+    directions = np.array([b['direction'] for b in bodies])
+    masses = np.array([b['mass'] for b in bodies])
+    sizes = np.array([b['size'] for b in bodies])
+    chaos_factors = np.array([b['chaos_factor'] for b in bodies])
+    interactions = np.array([b['interaction_intensity'] for b in bodies])
+    
+    # Apply chaotic forces to all bodies at once
     chaos_amplitude = 0.3 * (1 + sound_level)
-    for body in bodies:
-        # Add chaotic velocity changes
-        chaos_force = chaos_amplitude * body['chaos_factor'] * np.sin(instate['chaos_phase'] * body['chaos_factor'] + body['id'])
-        body['velocity'] += chaos_force * delta_time * 20
-        body['velocity'] = np.clip(body['velocity'], 10, 80)  # Keep in reasonable range
-        
-        # Occasional random direction changes for chaos
-        if np.random.random() < 0.02 * body['chaos_factor']:
-            body['direction'] *= -1
+    body_ids = np.arange(num_bodies)
+    chaos_forces = chaos_amplitude * chaos_factors * np.sin(instate['chaos_phase'] * chaos_factors + body_ids)
+    velocities += chaos_forces * delta_time * 20
+    velocities = np.clip(velocities, 10, 80)
     
-    # First pass: update positions and detect collisions
-    for i, body in enumerate(bodies):
-        # Update position with chaotic motion
-        base_movement = body['velocity'] * body['direction'] * delta_time
-        chaos_movement = 5 * body['chaos_factor'] * np.sin(instate['chaos_phase'] * 2 + body['id'] * 0.5) * delta_time
-        body['position'] += base_movement + chaos_movement
+    # Random direction changes
+    random_flips = np.random.random(num_bodies) < (0.02 * chaos_factors)
+    directions = np.where(random_flips, -directions, directions)
+    
+    # Update positions
+    base_movement = velocities * directions * delta_time
+    chaos_movement = 5 * chaos_factors * np.sin(instate['chaos_phase'] * 2 + body_ids * 0.5) * delta_time
+    positions += base_movement + chaos_movement
+    positions = positions % 360
+    
+    # Decay interaction intensity
+    interactions *= 0.92
+    
+    # Vectorized collision detection
+    # Create distance matrix (num_bodies x num_bodies)
+    pos_diff = positions[:, np.newaxis] - positions[np.newaxis, :]
+    pos_diff = np.where(pos_diff > 180, pos_diff - 360, pos_diff)
+    pos_diff = np.where(pos_diff < -180, pos_diff + 360, pos_diff)
+    pos_diff = np.abs(pos_diff)
+    
+    # Collision distance matrix
+    collision_distances = (sizes[:, np.newaxis] + sizes[np.newaxis, :]) / 2
+    
+    # Find collisions (upper triangle only to avoid duplicates)
+    collision_mask = (pos_diff < collision_distances) & (np.tri(num_bodies, k=-1).T.astype(bool))
+    
+    # Process collisions vectorized
+    if np.any(collision_mask):
+        i_indices, j_indices = np.where(collision_mask)
         
-        body['bounce_cooldown'] -= delta_time
-        body['interaction_intensity'] *= 0.92  # Slightly slower decay for more persistent grinding
-        
-        # Wrap around circle (0-360 degrees)
-        body['position'] = body['position'] % 360
-        
-        # Check for collisions with other bodies
-        for j, other_body in enumerate(bodies):
-            if i >= j:  # Avoid duplicate checks
-                continue
-                
-            # Calculate angular distance between bodies
-            pos_diff = abs(body['position'] - other_body['position'])
-            if pos_diff > 180:
-                pos_diff = 360 - pos_diff  # Wrap around
-                
-            collision_distance = (body['size'] + other_body['size']) / 2
+        for idx in range(len(i_indices)):
+            i, j = i_indices[idx], j_indices[idx]
             
-            if pos_diff < collision_distance:
-                # Bodies are colliding/grinding!
+            relative_velocity = velocities[i] * directions[i] - velocities[j] * directions[j]
+            
+            if abs(relative_velocity) > 3:
+                # Elastic collision
+                total_mass = masses[i] + masses[j]
+                new_vel_i = ((masses[i] - masses[j]) * velocities[i] + 2 * masses[j] * velocities[j]) / total_mass
+                new_vel_j = ((masses[j] - masses[i]) * velocities[j] + 2 * masses[i] * velocities[i]) / total_mass
                 
-                # Calculate collision response (more chaotic elastic collision)
-                relative_velocity = (body['velocity'] * body['direction']) - (other_body['velocity'] * other_body['direction'])
+                chaos_boost_i = np.random.uniform(0.8, 1.4) * chaos_factors[i]
+                chaos_boost_j = np.random.uniform(0.8, 1.4) * chaos_factors[j]
                 
-                if abs(relative_velocity) > 3:  # Lower threshold for more interactions
-                    # Exchange momentum with more chaos
-                    total_mass = body['mass'] + other_body['mass']
-                    new_vel1 = ((body['mass'] - other_body['mass']) * body['velocity'] + 2 * other_body['mass'] * other_body['velocity']) / total_mass
-                    new_vel2 = ((other_body['mass'] - body['mass']) * other_body['velocity'] + 2 * body['mass'] * body['velocity']) / total_mass
-                    
-                    # Add chaotic elements to collision
-                    chaos_boost1 = np.random.uniform(0.8, 1.4) * body['chaos_factor']
-                    chaos_boost2 = np.random.uniform(0.8, 1.4) * other_body['chaos_factor']
-                    
-                    body['velocity'] = abs(new_vel1) * chaos_boost1 + np.random.uniform(5, 20)
-                    other_body['velocity'] = abs(new_vel2) * chaos_boost2 + np.random.uniform(5, 20)
-                    
-                    # More frequent direction changes
-                    if np.random.random() < 0.5:
-                        body['direction'] *= -1
-                    if np.random.random() < 0.5:
-                        other_body['direction'] *= -1
+                velocities[i] = abs(new_vel_i) * chaos_boost_i + np.random.uniform(5, 20)
+                velocities[j] = abs(new_vel_j) * chaos_boost_j + np.random.uniform(5, 20)
                 
-                # Increase interaction intensity for visual effects
-                interaction_strength = max(0, (collision_distance - pos_diff) / collision_distance)
-                body['interaction_intensity'] = max(body['interaction_intensity'], interaction_strength * 0.9)
-                other_body['interaction_intensity'] = max(other_body['interaction_intensity'], interaction_strength * 0.9)
-                
-                # Chaotic separation
-                separation = (collision_distance - pos_diff) / 2 + np.random.uniform(1, 3)
-                direction_chaos = np.random.uniform(-0.5, 0.5)
-                
-                if body['position'] < other_body['position']:
-                    body['position'] -= separation + direction_chaos
-                    other_body['position'] += separation - direction_chaos
-                else:
-                    body['position'] += separation + direction_chaos
-                    other_body['position'] -= separation - direction_chaos
-                
-                body['position'] = body['position'] % 360
-                other_body['position'] = other_body['position'] % 360
+                if np.random.random() < 0.5:
+                    directions[i] *= -1
+                if np.random.random() < 0.5:
+                    directions[j] *= -1
+            
+            # Update interaction intensity
+            interaction_strength = max(0, (collision_distances[i, j] - pos_diff[i, j]) / collision_distances[i, j])
+            interactions[i] = max(interactions[i], interaction_strength * 0.9)
+            interactions[j] = max(interactions[j], interaction_strength * 0.9)
+            
+            # Separate bodies
+            separation = (collision_distances[i, j] - pos_diff[i, j]) / 2 + np.random.uniform(1, 3)
+            direction_chaos = np.random.uniform(-0.5, 0.5)
+            
+            if positions[i] < positions[j]:
+                positions[i] -= separation + direction_chaos
+                positions[j] += separation - direction_chaos
+            else:
+                positions[i] += separation + direction_chaos
+                positions[j] -= separation - direction_chaos
+            
+            positions[i] = positions[i] % 360
+            positions[j] = positions[j] % 360
     
-    # Update moving bubbles for all strips
-    bubble_rise_speed = 60  # pixels per second
-    bubble_spawn_rate = 0.15  # seconds between spawns per strip
+    # Write back to bodies
+    for i, body in enumerate(bodies):
+        body['position'] = positions[i]
+        body['velocity'] = velocities[i]
+        body['direction'] = directions[i]
+        body['interaction_intensity'] = interactions[i]
     
-    # Create mapping from strip ID to angular position
-    strip_angles = {}
+    # --- VECTORIZED STRIP PROCESSING ---
+    
+    # Get all strip info at once
     all_strip_ids = sorted([sid for sid in pattern_buffers.keys() if sid.startswith('Line_')])
     total_strips = len(all_strip_ids)
     
-    for i, strip_id in enumerate(all_strip_ids):
-        # Map strips to angles (0-360 degrees) based on their order
-        strip_angles[strip_id] = (i / total_strips) * 360
+    if total_strips == 0:
+        return
     
-    # Update bubbles for each strip
+    # Create strip angle mapping
+    strip_angles = {strip_id: (i / total_strips) * 360 for i, strip_id in enumerate(all_strip_ids)}
+    
+    # Pre-compute water colors
+    blue_h, blue_s, blue_v = instate['water_colors']['bright_blue']
+    blue_r, blue_g, blue_b = hsv_to_rgb_vectorized(blue_h, blue_s, blue_v)
+    
+    pink_h, pink_s, pink_v = instate['water_colors']['hot_pink']
+    pink_r, pink_g, pink_b = hsv_to_rgb_vectorized(pink_h, pink_s, pink_v)
+    
+    cyan_h, cyan_s, cyan_v = instate['water_colors']['cyan']
+    cyan_r, cyan_g, cyan_b = hsv_to_rgb_vectorized(cyan_h, cyan_s, cyan_v)
+    
+    magenta_h, magenta_s, magenta_v = instate['water_colors']['magenta']
+    magenta_r, magenta_g, magenta_b = hsv_to_rgb_vectorized(magenta_h, magenta_s, magenta_v)
+    
+    grey_h, grey_s, grey_v = instate['grey_water']
+    
+    # Bubble update constants
+    bubble_rise_speed = 60
+    bubble_spawn_rate = 0.15
+    
+    # Process each strip (still need loop but with vectorized internals)
     for strip_id in all_strip_ids:
+        buffer = pattern_buffers[strip_id]
+        strip_length = len(buffer)
+        strip_angle = strip_angles[strip_id]
+        
+        is_edge = strip_id in instate['edge_strips']
+        is_center = strip_id in instate['center_strips']
+        
+        # --- VECTORIZED WATER BASE ---
+        positions_array = np.arange(strip_length, dtype=float)
+        
+        chaos_time = instate['roiling_phase'] + instate['chaos_phase'] * 0.5
+        time_offset = chaos_time + strip_angle * 0.02
+        
+        # All roiling waves at once
+        roil_wave1 = 0.5 + 0.4 * np.sin(positions_array * 0.15 + time_offset)
+        roil_wave2 = 0.5 + 0.35 * np.sin(positions_array * 0.08 + time_offset * 1.7)
+        roil_wave3 = 0.5 + 0.3 * np.sin(positions_array * 0.12 + time_offset * 0.6)
+        roil_wave4 = 0.5 + 0.25 * np.cos(positions_array * 0.2 + time_offset * 2.3)
+        roil_wave5 = 0.5 + 0.2 * np.sin(positions_array * 0.18 + time_offset * 3.1)
+        
+        roil_intensity = roil_wave1 * roil_wave2 * roil_wave3 * roil_wave4 * roil_wave5
+        
+        # Add turbulence
+        noise1 = np.random.normal(0, 0.2, strip_length)
+        noise2 = np.random.normal(0, 0.15, strip_length) * np.sin(positions_array * 0.05 + time_offset)
+        noise3 = np.random.normal(0, 0.1, strip_length) * np.cos(positions_array * 0.08 + chaos_time)
+        
+        roil_intensity = np.clip(roil_intensity + noise1 + noise2 + noise3, 0.05, 1.2)
+        
+        # Set grey water base
+        grey_intensity = grey_v * roil_intensity
+        buffer[:, 0] = hsv_to_rgb_vectorized(grey_h, grey_s, grey_intensity)[0]
+        buffer[:, 1] = hsv_to_rgb_vectorized(grey_h, grey_s, grey_intensity)[1]
+        buffer[:, 2] = hsv_to_rgb_vectorized(grey_h, grey_s, grey_intensity)[2]
+        buffer[:, 3] = roil_intensity * 0.7
+        
+        # --- VECTORIZED WATER COLORS ---
+        color_cycle = np.sin(instate['water_phase'] + strip_angle * 0.03)
+        color_variation = np.sin(positions_array * 0.04 + instate['water_phase'] * 2)
+        chaos_variation = 0.3 * np.sin(positions_array * 0.06 + instate['chaos_phase'] * 1.5)
+        
+        combined_cycle = color_cycle * (0.7 + 0.3 * color_variation + chaos_variation)
+        
+        blue_mask = combined_cycle > 0
+        water_intensity = np.abs(combined_cycle) * 0.8
+        
+        # Apply colors using masks
+        buffer[blue_mask, 0] = np.minimum(1.0, buffer[blue_mask, 0] + blue_r * water_intensity[blue_mask])
+        buffer[blue_mask, 1] = np.minimum(1.0, buffer[blue_mask, 1] + blue_g * water_intensity[blue_mask])
+        buffer[blue_mask, 2] = np.minimum(1.0, buffer[blue_mask, 2] + blue_b * water_intensity[blue_mask])
+        
+        pink_mask = ~blue_mask
+        buffer[pink_mask, 0] = np.minimum(1.0, buffer[pink_mask, 0] + pink_r * water_intensity[pink_mask])
+        buffer[pink_mask, 1] = np.minimum(1.0, buffer[pink_mask, 1] + pink_g * water_intensity[pink_mask])
+        buffer[pink_mask, 2] = np.minimum(1.0, buffer[pink_mask, 2] + pink_b * water_intensity[pink_mask])
+        
+        buffer[:, 3] = np.maximum(buffer[:, 3], water_intensity)
+        
+        # Water color waves
+        water_wave1 = 0.5 + 0.5 * np.sin(positions_array * 0.06 + instate['water_phase'] * 4 + strip_angle * 0.04)
+        water_wave2 = 0.5 + 0.3 * np.cos(positions_array * 0.09 + instate['water_phase'] * 2.5)
+        water_wave3 = 0.5 + 0.25 * np.sin(positions_array * 0.11 + instate['chaos_phase'] * 1.8)
+        water_combined = water_wave1 * water_wave2 * water_wave3
+        water_mask = water_combined > 0.3
+        
+        if np.any(water_mask):
+            # Use pre-computed colors directly (vectorized already)
+            buffer[water_mask, 0] = np.minimum(1.0, buffer[water_mask, 0] + blue_r * water_intensity[water_mask])
+            buffer[water_mask, 1] = np.minimum(1.0, buffer[water_mask, 1] + blue_g * water_intensity[water_mask])
+            buffer[water_mask, 2] = np.minimum(1.0, buffer[water_mask, 2] + blue_b * water_intensity[water_mask])
+            buffer[water_mask, 3] = np.maximum(buffer[water_mask, 3], water_intensity[water_mask])
+        
+        # Center effects
+        if is_center:
+            deep_wave1 = 0.6 + 0.4 * np.sin(positions_array * 0.04 + instate['water_phase'] * 2)
+            deep_wave2 = 0.5 + 0.3 * np.cos(positions_array * 0.07 + instate['water_phase'] * 1.5)
+            deep_wave3 = 0.4 + 0.3 * np.sin(positions_array * 0.05 + instate['chaos_phase'])
+            deep_combined = deep_wave1 * deep_wave2 * deep_wave3
+            
+            alt_choice = np.sin(instate['water_phase'] + strip_angle * 0.02 + instate['chaos_phase'] * 0.3)
+            if alt_choice > 0:
+                deep_r, deep_g, deep_b = cyan_r, cyan_g, cyan_b
+            else:
+                deep_r, deep_g, deep_b = magenta_r, magenta_g, magenta_b
+            
+            buffer[:, 0] = np.minimum(1.0, buffer[:, 0] + deep_r * deep_combined * 0.6)
+            buffer[:, 1] = np.minimum(1.0, buffer[:, 1] + deep_g * deep_combined * 0.6)
+            buffer[:, 2] = np.minimum(1.0, buffer[:, 2] + deep_b * deep_combined * 0.6)
+            buffer[:, 3] = np.maximum(buffer[:, 3], deep_combined * 0.8)
+        
+        # --- BUBBLES (keep mostly as-is, already reasonably efficient) ---
         if strip_id not in instate['bubbles']:
             instate['bubbles'][strip_id] = {
                 'bubble_list': [],
@@ -1625,248 +1745,129 @@ def GS_hot_tub(instate, outstate):
             }
         
         strip_bubbles = instate['bubbles'][strip_id]
-        strip_length = pattern_buffers.get(strip_id, np.array([])).shape[0] if strip_id in pattern_buffers else 300
         
-        # Update existing bubbles (move them up)
+        # Update bubbles
         bubbles_to_remove = []
         for i, bubble in enumerate(strip_bubbles['bubble_list']):
             bubble['position'] += bubble_rise_speed * delta_time
             bubble['age'] += delta_time
             
-            # Add some horizontal drift for chaos
             drift = 3 * np.sin(bubble['phase'] + current_time * 2) * delta_time
             bubble['position'] += drift
             
-            # Remove bubbles that have reached the top or aged out
             if bubble['position'] >= strip_length or bubble['age'] > 8.0:
                 bubbles_to_remove.append(i)
         
-        # Remove old bubbles (reverse order to maintain indices)
         for i in reversed(bubbles_to_remove):
             strip_bubbles['bubble_list'].pop(i)
         
-        # Spawn new bubbles
-        is_edge = strip_id in instate['edge_strips']
-        spawn_probability = 1.5 if is_edge else 0.8  # Edge strips spawn more bubbles
+        # Spawn bubbles
+        spawn_probability = 1.5 if is_edge else 0.8
         
         if current_time - strip_bubbles['last_spawn'] > bubble_spawn_rate / spawn_probability:
-            # Spawn a new bubble
             new_bubble = {
-                'position': np.random.uniform(0, 30),  # Start near bottom
+                'position': np.random.uniform(0, 30),
                 'size': np.random.uniform(1, 3),
                 'color': np.random.choice(['cyan', 'bright_blue', 'hot_pink']),
                 'brightness': np.random.uniform(0.7, 1.0),
                 'age': 0.0,
-                'phase': np.random.uniform(0, 2 * np.pi)  # For drift motion
+                'phase': np.random.uniform(0, 2 * np.pi)
             }
             strip_bubbles['bubble_list'].append(new_bubble)
             strip_bubbles['last_spawn'] = current_time
-    
-    # Process each strip
-    for strip_id, buffer in pattern_buffers.items():
-        if not strip_id.startswith('Line_'):
-            continue
-            
-        strip_length = len(buffer)
-        strip_angle = strip_angles.get(strip_id, 0)
         
-        # Determine strip zone
-        is_edge = strip_id in instate['edge_strips']
-        is_center = strip_id in instate['center_strips']
-        is_transition = strip_id in instate['transition_strips']
-        
-        # Initialize with enhanced greyish roiling water base
-        positions = np.arange(strip_length, dtype=float)
-        
-        # Create much more chaotic roiling water effect with multiple layers
-        chaos_time = instate['roiling_phase'] + instate['chaos_phase'] * 0.5
-        time_offset = chaos_time + strip_angle * 0.02
-        
-        # Multiple chaotic wave layers
-        roil_wave1 = 0.5 + 0.4 * np.sin(positions * 0.15 + time_offset)
-        roil_wave2 = 0.5 + 0.35 * np.sin(positions * 0.08 + time_offset * 1.7)
-        roil_wave3 = 0.5 + 0.3 * np.sin(positions * 0.12 + time_offset * 0.6)
-        roil_wave4 = 0.5 + 0.25 * np.cos(positions * 0.2 + time_offset * 2.3)
-        roil_wave5 = 0.5 + 0.2 * np.sin(positions * 0.18 + time_offset * 3.1)  # Extra chaos layer
-        
-        # Combine waves for extreme turbulence
-        roil_intensity = roil_wave1 * roil_wave2 * roil_wave3 * roil_wave4 * roil_wave5
-        
-        # Add much stronger random turbulence
-        noise1 = np.random.normal(0, 0.2, strip_length)
-        noise2 = np.random.normal(0, 0.15, strip_length) * np.sin(positions * 0.05 + time_offset)
-        noise3 = np.random.normal(0, 0.1, strip_length) * np.cos(positions * 0.08 + chaos_time)
-        total_noise = noise1 + noise2 + noise3
-        
-        roil_intensity = np.clip(roil_intensity + total_noise, 0.05, 1.2)
-        
-        # Enhanced greyish water base with more dynamic range
-        h, s, v = instate['grey_water']
-        grey_r, grey_g, grey_b = hsv_to_rgb_vectorized(h, s, v * roil_intensity)
-        
-        buffer[:, 0] = grey_r
-        buffer[:, 1] = grey_g
-        buffer[:, 2] = grey_b
-        buffer[:, 3] = roil_intensity * 0.7
-        
-        # Add water color effects with chaotic variation
-        color_cycle = np.sin(instate['water_phase'] + strip_angle * 0.03)
-        color_variation = np.sin(positions * 0.04 + instate['water_phase'] * 2)
-        chaos_variation = 0.3 * np.sin(positions * 0.06 + instate['chaos_phase'] * 1.5)
-        
-        combined_cycle = color_cycle * (0.7 + 0.3 * color_variation + chaos_variation)
-        
-        # Use vectorized operations for colors
-        blue_mask = combined_cycle > 0
-        pink_mask = ~blue_mask
-        
-        # Initialize arrays for water colors
-        water_r = np.zeros(strip_length)
-        water_g = np.zeros(strip_length)
-        water_b = np.zeros(strip_length)
-        water_intensity = np.abs(combined_cycle) * 0.8
-        
-        # Apply blue colors where mask is true
-        if np.any(blue_mask):
-            h, s, v = instate['water_colors']['bright_blue']
-            blue_r, blue_g, blue_b = hsv_to_rgb_vectorized(h, s, v)
-            water_r[blue_mask] = blue_r
-            water_g[blue_mask] = blue_g
-            water_b[blue_mask] = blue_b
-        
-        # Apply pink colors where mask is true
-        if np.any(pink_mask):
-            h, s, v = instate['water_colors']['hot_pink']
-            pink_r, pink_g, pink_b = hsv_to_rgb_vectorized(h, s, v)
-            water_r[pink_mask] = pink_r
-            water_g[pink_mask] = pink_g
-            water_b[pink_mask] = pink_b
-        
-        # Create more chaotic water color waves
-        water_wave1 = 0.5 + 0.5 * np.sin(positions * 0.06 + instate['water_phase'] * 4 + strip_angle * 0.04)
-        water_wave2 = 0.5 + 0.3 * np.cos(positions * 0.09 + instate['water_phase'] * 2.5)
-        water_wave3 = 0.5 + 0.25 * np.sin(positions * 0.11 + instate['chaos_phase'] * 1.8)
-        water_combined = water_wave1 * water_wave2 * water_wave3
-        water_mask = water_combined > 0.3  # Lower threshold for more coverage
-        
-        if np.any(water_mask):
-            # Blend water colors additively with more intensity
-            buffer[water_mask, 0] = np.minimum(1.0, buffer[water_mask, 0] + water_r[water_mask] * water_intensity[water_mask])
-            buffer[water_mask, 1] = np.minimum(1.0, buffer[water_mask, 1] + water_g[water_mask] * water_intensity[water_mask])
-            buffer[water_mask, 2] = np.minimum(1.0, buffer[water_mask, 2] + water_b[water_mask] * water_intensity[water_mask])
-            buffer[water_mask, 3] = np.maximum(buffer[water_mask, 3], water_intensity[water_mask])
-        
-        # Add zone-specific effects
-        if is_center:
-            # Center strips: deeper water effects with chaotic color mixing
-            deep_wave1 = 0.6 + 0.4 * np.sin(positions * 0.04 + instate['water_phase'] * 2)
-            deep_wave2 = 0.5 + 0.3 * np.cos(positions * 0.07 + instate['water_phase'] * 1.5)
-            deep_wave3 = 0.4 + 0.3 * np.sin(positions * 0.05 + instate['chaos_phase'])
-            deep_combined = deep_wave1 * deep_wave2 * deep_wave3
-            
-            # Chaotic color alternation
-            alt_choice = np.sin(instate['water_phase'] + strip_angle * 0.02 + instate['chaos_phase'] * 0.3)
-            alt_color = 'cyan' if alt_choice > 0 else 'magenta'
-            h, s, v = instate['water_colors'][alt_color]
-            deep_r, deep_g, deep_b = hsv_to_rgb_vectorized(h, s, v * deep_combined)
-            
-            # Blend deeper colors
-            buffer[:, 0] = np.minimum(1.0, buffer[:, 0] + deep_r * 0.6)
-            buffer[:, 1] = np.minimum(1.0, buffer[:, 1] + deep_g * 0.6)
-            buffer[:, 2] = np.minimum(1.0, buffer[:, 2] + deep_b * 0.6)
-            buffer[:, 3] = np.maximum(buffer[:, 3], deep_combined * 0.8)
-        
-        # Render moving bubbles
-        if strip_id in instate['bubbles']:
-            for bubble in instate['bubbles'][strip_id]['bubble_list']:
-                bubble_pos = int(bubble['position'])
-                if 0 <= bubble_pos < strip_length:
-                    # Get bubble color
-                    h, s, v = instate['water_colors'][bubble['color']]
-                    
-                    # Fade bubbles as they age and add shimmer
-                    age_fade = max(0.3, 1.0 - bubble['age'] / 6.0)
-                    shimmer = 0.8 + 0.2 * np.sin(current_time * 6 + bubble['phase'])
-                    final_brightness = bubble['brightness'] * age_fade * shimmer
-                    
-                    bubble_r, bubble_g, bubble_b = hsv_to_rgb_vectorized(h, s * 0.6, v * final_brightness)
-                    
-                    # Set bubble pixel (additive)
-                    buffer[bubble_pos, 0] = min(1.0, buffer[bubble_pos, 0] + bubble_r)
-                    buffer[bubble_pos, 1] = min(1.0, buffer[bubble_pos, 1] + bubble_g)
-                    buffer[bubble_pos, 2] = min(1.0, buffer[bubble_pos, 2] + bubble_b)
-                    buffer[bubble_pos, 3] = max(buffer[bubble_pos, 3], final_brightness)
-                    
-                    # Add bubble spread for larger bubbles
-                    if bubble['size'] > 2 and bubble_pos > 0:
-                        spread_brightness = final_brightness * 0.5
-                        buffer[bubble_pos - 1, 0] = min(1.0, buffer[bubble_pos - 1, 0] + bubble_r * 0.5)
-                        buffer[bubble_pos - 1, 1] = min(1.0, buffer[bubble_pos - 1, 1] + bubble_g * 0.5)
-                        buffer[bubble_pos - 1, 2] = min(1.0, buffer[bubble_pos - 1, 2] + bubble_b * 0.5)
+        # Render bubbles
+        for bubble in strip_bubbles['bubble_list']:
+            bubble_pos = int(bubble['position'])
+            if 0 <= bubble_pos < strip_length:
+                # Get color
+                if bubble['color'] == 'cyan':
+                    b_r, b_g, b_b = cyan_r, cyan_g, cyan_v
+                elif bubble['color'] == 'bright_blue':
+                    b_r, b_g, b_b = blue_r, blue_g, blue_b
+                else:  # hot_pink
+                    b_r, b_g, b_b = pink_r, pink_g, pink_b
+                
+                age_fade = max(0.3, 1.0 - bubble['age'] / 6.0)
+                shimmer = 0.8 + 0.2 * np.sin(current_time * 6 + bubble['phase'])
+                final_brightness = bubble['brightness'] * age_fade * shimmer
+                
+                # Apply bubble
+                buffer[bubble_pos, 0] = min(1.0, buffer[bubble_pos, 0] + b_r * final_brightness)
+                buffer[bubble_pos, 1] = min(1.0, buffer[bubble_pos, 1] + b_g * final_brightness)
+                buffer[bubble_pos, 2] = min(1.0, buffer[bubble_pos, 2] + b_b * final_brightness)
+                buffer[bubble_pos, 3] = max(buffer[bubble_pos, 3], final_brightness)
+                
+                if bubble['size'] > 2:
+                    spread_brightness = final_brightness * 0.5
+                    if bubble_pos > 0:
+                        buffer[bubble_pos - 1, 0] = min(1.0, buffer[bubble_pos - 1, 0] + b_r * spread_brightness)
+                        buffer[bubble_pos - 1, 1] = min(1.0, buffer[bubble_pos - 1, 1] + b_g * spread_brightness)
+                        buffer[bubble_pos - 1, 2] = min(1.0, buffer[bubble_pos - 1, 2] + b_b * spread_brightness)
                         buffer[bubble_pos - 1, 3] = max(buffer[bubble_pos - 1, 3], spread_brightness)
-                    
-                    if bubble['size'] > 2 and bubble_pos < strip_length - 1:
-                        spread_brightness = final_brightness * 0.5
-                        buffer[bubble_pos + 1, 0] = min(1.0, buffer[bubble_pos + 1, 0] + bubble_r * 0.5)
-                        buffer[bubble_pos + 1, 1] = min(1.0, buffer[bubble_pos + 1, 1] + bubble_g * 0.5)
-                        buffer[bubble_pos + 1, 2] = min(1.0, buffer[bubble_pos + 1, 2] + bubble_b * 0.5)
+                    if bubble_pos < strip_length - 1:
+                        buffer[bubble_pos + 1, 0] = min(1.0, buffer[bubble_pos + 1, 0] + b_r * spread_brightness)
+                        buffer[bubble_pos + 1, 1] = min(1.0, buffer[bubble_pos + 1, 1] + b_g * spread_brightness)
+                        buffer[bubble_pos + 1, 2] = min(1.0, buffer[bubble_pos + 1, 2] + b_b * spread_brightness)
                         buffer[bubble_pos + 1, 3] = max(buffer[bubble_pos + 1, 3], spread_brightness)
         
-        # Add flesh-toned moving bodies with chaotic grinding effects
-        for body in bodies:
-            # Calculate angular distance from this strip
-            angle_diff = abs(body['position'] - strip_angle)
-            if angle_diff > 180:
-                angle_diff = 360 - angle_diff  # Wrap around
+        # --- VECTORIZED FLESH BODIES ---
+        # Pre-compute which bodies affect this strip
+        angle_diffs = np.abs(positions - strip_angle)
+        angle_diffs = np.where(angle_diffs > 180, 360 - angle_diffs, angle_diffs)
+        
+        body_radii = sizes / 2
+        affecting_bodies = angle_diffs <= body_radii
+        
+        if np.any(affecting_bodies):
+            affecting_indices = np.where(affecting_bodies)[0]
             
-            # Check if this body affects this strip
-            body_radius = body['size'] / 2
-            if angle_diff <= body_radius:
-                # Calculate how much this body overlaps with this strip
+            for body_idx in affecting_indices:
+                angle_diff = angle_diffs[body_idx]
+                body_radius = body_radii[body_idx]
                 overlap_factor = 1.0 - (angle_diff / body_radius)
                 
-                # Map body position along strip length with chaos
+                body = bodies[body_idx]
+                
+                # Calculate position on strip
                 base_radial_pos = 0.25 + 0.5 * overlap_factor
-                chaos_offset = 0.1 * body['chaos_factor'] * np.sin(instate['chaos_phase'] + body['id'])
+                chaos_offset = 0.1 * chaos_factors[body_idx] * np.sin(instate['chaos_phase'] + body_idx)
                 body_radial_pos = np.clip(base_radial_pos + chaos_offset, 0.1, 0.9)
                 
                 strip_center = int(body_radial_pos * strip_length)
                 
-                # Body size with chaos and interaction effects
+                # Calculate size
                 base_size = max(10, int(18 * overlap_factor))
-                interaction_boost = int(body['interaction_intensity'] * 15)
-                chaos_size_boost = int(3 * body['chaos_factor'] * abs(np.sin(instate['chaos_phase'] * 2 + body['id'])))
+                interaction_boost = int(interactions[body_idx] * 15)
+                chaos_size_boost = int(3 * chaos_factors[body_idx] * abs(np.sin(instate['chaos_phase'] * 2 + body_idx)))
                 body_size_on_strip = base_size + interaction_boost + chaos_size_boost
                 
                 strip_start = max(0, strip_center - body_size_on_strip // 2)
                 strip_end = min(strip_length, strip_center + body_size_on_strip // 2)
                 
                 if strip_end > strip_start:
-                    # Create flesh-toned region with chaotic grinding effects
+                    # Get flesh color
                     h, s, v = body['color']
                     
-                    # Increase saturation and brightness when grinding + chaos
-                    chaos_intensity = 0.2 * body['chaos_factor'] * abs(np.sin(instate['chaos_phase'] + body['id']))
-                    s = min(1.0, s + body['interaction_intensity'] * 0.4 + chaos_intensity)
-                    v = min(1.0, v + body['interaction_intensity'] * 0.3 + chaos_intensity * 0.5)
+                    chaos_intensity = 0.2 * chaos_factors[body_idx] * abs(np.sin(instate['chaos_phase'] + body_idx))
+                    s = min(1.0, s + interactions[body_idx] * 0.4 + chaos_intensity)
+                    v = min(1.0, v + interactions[body_idx] * 0.3 + chaos_intensity * 0.5)
                     
                     flesh_r, flesh_g, flesh_b = hsv_to_rgb_vectorized(h, s, v)
                     
-                    # Add chaotic movement/shimmer with grinding intensity
+                    # Vectorized shimmer for flesh region
                     flesh_positions = np.arange(strip_start, strip_end)
                     base_shimmer = 0.6 + 0.4 * np.sin(flesh_positions * 0.3 + current_time * 12)
                     
-                    # Add grinding and chaos turbulence
-                    grinding_chaos = body['interaction_intensity'] + chaos_intensity
+                    grinding_chaos = interactions[body_idx] + chaos_intensity
                     if grinding_chaos > 0.1:
                         turbulence_noise = grinding_chaos * 0.5 * np.random.normal(0, 1, len(flesh_positions))
-                        chaos_wave = 0.3 * body['chaos_factor'] * np.sin(flesh_positions * 0.4 + instate['chaos_phase'] * 3)
+                        chaos_wave = 0.3 * chaos_factors[body_idx] * np.sin(flesh_positions * 0.4 + instate['chaos_phase'] * 3)
                         total_shimmer = base_shimmer + turbulence_noise + chaos_wave
                         total_shimmer = np.clip(total_shimmer, 0.2, 1.4)
                     else:
                         total_shimmer = base_shimmer
                     
-                    # Apply flesh colors with chaotic grinding effects
                     body_alpha = (0.6 + 0.4 * overlap_factor) * total_shimmer
                     body_alpha = np.clip(body_alpha, 0, 1)
                     
@@ -1875,7 +1876,7 @@ def GS_hot_tub(instate, outstate):
                     buffer[strip_start:strip_end, 2] = flesh_b * total_shimmer
                     buffer[strip_start:strip_end, 3] = body_alpha
         
-        # Apply final fade alpha
+        # Apply final fade
         buffer[:, 3] *= fade_alpha
 
 def GS_align(instate, outstate):
@@ -1954,3 +1955,231 @@ def GS_align(instate, outstate):
             buffer[pixel_idx, 1] = colors_rgb[color_index, 1]  # Green
             buffer[pixel_idx, 2] = colors_rgb[color_index, 2]  # Blue
             buffer[pixel_idx, 3] = fade_alpha
+
+
+def GS_shibari(instate, outstate):
+    """
+    Shibari (rope binding) inspired pattern.
+    Features:
+    - Faint purple and blue background that slowly shifts
+    - Slowly moving brown rope segments that appear to wrap and bind
+    - Significant black space for contrast
+    - Contemplative, meditative aesthetic
+    """
+    name = 'shibari'
+    buffers = outstate['buffers']
+
+    if instate['count'] == 0:
+        buffers.register_generator(name)
+        
+        # Initialize rope states
+        instate['ropes'] = []
+        
+        # Background color palette (HSV) - HIGH CONTRAST purples and blues
+        instate['bg_colors'] = {
+            'deep_purple': [0.75, 0.8, 0.4],    # Dark, saturated purple
+            'lavender': [0.72, 0.3, 0.9],       # Bright, desaturated lavender
+            'midnight_blue': [0.65, 0.9, 0.3],  # Very dark, saturated blue
+            'soft_blue': [0.6, 0.4, 0.85],      # Bright, soft blue
+        }
+        
+        # Rope color palette (HSV) - various browns (brighter)
+        instate['rope_colors'] = [
+            [0.08, 0.7, 0.95],   # Bright medium brown
+            [0.06, 0.8, 0.85],   # Bright dark brown
+            [0.1, 0.6, 1.0],     # Very bright light brown
+            [0.07, 0.75, 0.8],   # Bright deep brown
+            [0.09, 0.65, 1.0],   # Very bright tan brown
+        ]
+        
+        # Create fewer ropes with more spacing
+        num_ropes = 20  # Reduced from 12 for more black space
+        for i in range(num_ropes):
+            rope = {
+                'position': (i / num_ropes) * 360,  # Evenly spaced instead of random
+                'velocity': np.random.uniform(3, 8),
+                'thickness': np.random.randint(50, 100),
+                'color_idx': np.random.randint(len(instate['rope_colors'])),
+                'vertical_offset': np.random.uniform(0, 1),
+                'wave_phase': np.random.uniform(0, 2 * np.pi),
+                'wrap_tightness': np.random.uniform(0.02, 0.08),
+            }
+            instate['ropes'].append(rope)
+        
+        instate['background_phase'] = 0.0
+        
+        return
+
+    if instate['count'] == -1:
+        buffers.generator_alphas[name] = 0
+        return
+
+    sound_level = outstate.get('sound_level', 1.0)
+    
+    # Calculate fade in/out
+    elapsed_time = instate['elapsed_time']
+    remaining_time = instate['duration'] - elapsed_time
+    
+    fade_alpha = 1.0
+    if elapsed_time < 5.0:
+        fade_alpha = elapsed_time / 5.0
+    elif remaining_time < 5.0:
+        fade_alpha = remaining_time / 5.0
+    
+    buffers.generator_alphas[name] = fade_alpha
+    
+    if fade_alpha < 0.01:
+        return
+    
+    current_time = outstate['current_time']
+    delta_time = outstate['current_time'] - outstate['last_time']
+    pattern_buffers = buffers.get_all_buffers(name)
+    
+    # Update background phase
+    instate['background_phase'] += delta_time * 0.8
+    
+    # Get sorted strip IDs
+    all_strip_ids = sorted([sid for sid in pattern_buffers.keys() if sid.startswith('Line_')])
+    total_strips = len(all_strip_ids)
+    
+    if total_strips == 0:
+        return
+    
+    # Create strip angle mapping
+    strip_angles = {strip_id: (i / total_strips) * 360 for i, strip_id in enumerate(all_strip_ids)}
+    
+    # Pre-convert background colors to RGB
+    bg_colors_rgb = {}
+    for color_name, (h, s, v) in instate['bg_colors'].items():
+        r, g, b = hsv_to_rgb_vectorized(h, s, v)
+        bg_colors_rgb[color_name] = (r, g, b)
+    
+    # Update rope positions
+    for rope in instate['ropes']:
+        rope['position'] += rope['velocity'] * delta_time
+        rope['position'] = rope['position'] % 360
+    
+    # Process each strip
+    for strip_id in all_strip_ids:
+        buffer = pattern_buffers[strip_id]
+        strip_length = len(buffer)
+        strip_angle = strip_angles[strip_id]
+        
+        positions = np.arange(strip_length, dtype=float)
+        
+        # --- START WITH BLACK (transparent) ---
+        buffer[:, 0] = 0.0
+        buffer[:, 1] = 0.0
+        buffer[:, 2] = 0.0
+        buffer[:, 3] = 0.0
+        
+        # --- SPARSE BACKGROUND: Only show in certain areas ---
+        
+        # Create multiple wave layers
+        wave1 = np.sin(positions * 0.03 + instate['background_phase'] * 2)
+        wave2 = np.sin(positions * 0.05 + instate['background_phase'] * 1.5 + strip_angle * 0.02)
+        wave3 = np.cos(positions * 0.04 + instate['background_phase'] * 2.5)
+        
+        # Combine waves and threshold - only show background where waves align
+        combined_wave = (wave1 + wave2 + wave3) / 3
+        
+        # Only show background in bright areas (threshold for sparse coverage)
+        bg_mask = combined_wave > 0.1  # Only show in ~30% of pixels
+        
+        if np.any(bg_mask):
+            # Add a global time-based color shift
+            time_shift = 0.5 + 0.5 * np.sin(instate['background_phase'] * 0.5)
+            
+            wave_intensity = (combined_wave[bg_mask] - 0.1) / 0.9  # Normalize to 0-1
+            
+            # Interpolate between colors
+            deep_purple_r, deep_purple_g, deep_purple_b = bg_colors_rgb['deep_purple']
+            soft_blue_r, soft_blue_g, soft_blue_b = bg_colors_rgb['soft_blue']
+            lavender_r, lavender_g, lavender_b = bg_colors_rgb['lavender']
+            
+            # Mix colors
+            bg_r = (deep_purple_r * (1 - wave_intensity) + soft_blue_r * wave_intensity) * (1 - time_shift * 0.3) + lavender_r * time_shift * 0.3
+            bg_g = (deep_purple_g * (1 - wave_intensity) + soft_blue_g * wave_intensity) * (1 - time_shift * 0.3) + lavender_g * time_shift * 0.3
+            bg_b = (deep_purple_b * (1 - wave_intensity) + soft_blue_b * wave_intensity) * (1 - time_shift * 0.3) + lavender_b * time_shift * 0.3
+            
+            # Set sparse background
+            buffer[bg_mask, 0] = bg_r
+            buffer[bg_mask, 1] = bg_g
+            buffer[bg_mask, 2] = bg_b
+            buffer[bg_mask, 3] = 0.8 * wave_intensity  # Fade with intensity
+        
+        # --- ROPES: More defined and separated ---
+        
+        for rope in instate['ropes']:
+            # Calculate angular distance from this strip
+            angle_diff = abs(strip_angle - rope['position'])
+            if angle_diff > 180:
+                angle_diff = 360 - angle_diff
+            
+            # Reduced influence radius for more black space between ropes
+            influence_radius = 100  # Reduced from 120 to 50 degrees
+            
+            if angle_diff < influence_radius:
+                # Steeper falloff for more defined edges
+                influence = (1.0 - (angle_diff / influence_radius))   # Squared for steeper falloff
+                influence = np.clip(influence, 0, 1)
+                
+                # Only render if influence is significant (creates hard cutoff)
+                if influence > 0.1:
+                    # Calculate vertical position on strip with wrapping wave
+                    base_pos = rope['vertical_offset']
+                    wrap_wave = 0.15 * np.sin(strip_angle * rope['wrap_tightness'] + rope['wave_phase'])
+                    rope_center = (base_pos + wrap_wave) % 1.0
+                    rope_center_pixel = int(rope_center * strip_length)
+                    
+                    # Calculate rope thickness with influence fade
+                    effective_thickness = int(rope['thickness'] * influence)
+                    
+                    if effective_thickness > 0:
+                        # Calculate rope extent
+                        half_thickness = effective_thickness // 2
+                        rope_start = max(0, rope_center_pixel - half_thickness)
+                        rope_end = min(strip_length, rope_center_pixel + half_thickness + 1)
+                        
+                        if rope_end > rope_start:
+                            # Get rope color
+                            h, s, v = instate['rope_colors'][rope['color_idx']]
+                            
+                            # Add texture variation to rope
+                            rope_positions = np.arange(rope_start, rope_end)
+                            texture = 0.9 + 0.1 * np.sin(rope_positions * 0.5 + current_time * 0.5)
+                            texture *= 0.95 + 0.05 * np.sin(rope_positions * 1.3 + rope['wave_phase'])
+                            
+                            # Calculate distance from rope center for gradient
+                            distances = np.abs(rope_positions - rope_center_pixel)
+                            gradient = 1.0 - (distances / (half_thickness + 1)) ** 0.5
+                            gradient = np.clip(gradient, 0, 1)
+                            
+                            # Combine texture and gradient
+                            rope_intensity = texture * gradient * influence
+                            
+                            # Convert to RGB with variation
+                            rope_r, rope_g, rope_b = hsv_to_rgb_vectorized(h, s, v * rope_intensity)
+                            
+                            # Blend rope with background
+                            rope_alpha =  rope_intensity
+                            
+                            buffer[rope_start:rope_end, 0] = (
+                                buffer[rope_start:rope_end, 0] * (1 - rope_alpha) + 
+                                rope_r * rope_alpha
+                            )
+                            buffer[rope_start:rope_end, 1] = (
+                                buffer[rope_start:rope_end, 1] * (1 - rope_alpha) + 
+                                rope_g * rope_alpha
+                            )
+                            buffer[rope_start:rope_end, 2] = (
+                                buffer[rope_start:rope_end, 2] * (1 - rope_alpha) + 
+                                rope_b * rope_alpha
+                            )
+                            buffer[rope_start:rope_end, 3] = np.maximum(
+                                buffer[rope_start:rope_end, 3],
+                                rope_alpha
+                            )
+        
+        # Apply final fade
+        buffer[:, 3] *= fade_alpha
