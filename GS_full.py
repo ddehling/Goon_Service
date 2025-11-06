@@ -126,7 +126,7 @@ if __name__ == "__main__":
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
     vidlength = [15, 15 * 60 + 5]
-    vidnum = 0
+    vidnum = 1
     numvid = len(vidlength)
     
     try:
