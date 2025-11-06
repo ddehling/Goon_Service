@@ -137,33 +137,30 @@ class EnvironmentalSystem:
         print(f"Switched to video {vidnum + 1} - Fullscreen enforced")
 
     def schedule_video_events(self, vidnum):
-        """Schedule events based on the video number using YAML configuration"""
+        """Schedule events based on the video number with manual sequences"""
         # Clear any existing scheduled events
         self.scheduler.cancel_all_events()
         
-        # Get video configuration from YAML
-        video_config = self.video_sequences.get(vidnum, {})
-        video_name = video_config.get('name', f'Video {vidnum + 1}')
-        events = video_config.get('events', [])
-        
-        print(f"Scheduling events for {video_name}:")
-        
-        # Schedule each event from the configuration
-        for event in events:
-            start_time = event.get('start', 0)
-            end_time = event.get('end', 10)
-            lighting_name = event.get('lighting', 'GS_forest')
+        if vidnum == 0:  # First video - Deadly Prey
+            self.scheduler.schedule_event(0, 15, GS_forest)
+            self.scheduler.schedule_event(10, 15, GS_tingles)
+            print("Scheduling events for Deadly Prey:")
+            print("  - 0s-15s: GS_forest")
+            print("  - 10s-15s: GS_tingles")
             
-            # Convert lighting string to function
-            lighting_func = self.get_lighting_function(lighting_name)
-            if lighting_func:
-                self.scheduler.schedule_event(start_time, end_time, lighting_func)
-                print(f"  - {start_time}s-{end_time}s: {lighting_name}")
-            else:
-                print(f"  - Warning: Lighting function '{lighting_name}' not found, skipping")
-        
-        if not events:
-            print(f"  - No events configured for video {vidnum}")
+        elif vidnum == 1:  # Second video - Kitty Sequence
+            self.scheduler.schedule_event(0, 194, GS_blink_fade)      # opener
+            self.scheduler.schedule_event(194, 346, GS_hot_tub)
+            self.scheduler.schedule_event(362, 538, GS_hypnotic_spiral)
+            self.scheduler.schedule_event(547, 842, GS_forest)
+            print("Scheduling events for Kitty Sequence:")
+            print("  - 0s-194s: GS_blink_fade")
+            print("  - 194s-346s: GS_hot_tub")
+            print("  - 362s-538s: GS_hypnotic_spiral")
+            print("  - 547s-842s: GS_forest")
+            
+        else:
+            print(f"No events configured for video {vidnum}")
     
     def get_lighting_function(self, lighting_name):
         """Convert lighting function name string to actual function"""
