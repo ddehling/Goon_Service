@@ -74,7 +74,7 @@ class EnvironmentalSystem:
 if __name__ == "__main__":
     scheduler = EventScheduler()
     env_system = EnvironmentalSystem(scheduler)
-    scheduler.setup_visualizer(True) 
+    scheduler.setup_visualizer(False) 
     # Start with summer bloom weather
    
 
