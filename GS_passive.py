@@ -17,7 +17,7 @@ class EnvironmentalSystem:
         self.progress = 0
         self.video_files = [
             "/home/dieter/Videos/2025.10.02 NatureSmut - Edit.mp4",
-            "/home/dieter/Videos/GoonService_KittySequence.mov",
+            
         ]
         self.VLC = VLCController(self.video_files)
         self.speed = 0.995
@@ -108,11 +108,7 @@ class EnvironmentalSystem:
             #self.scheduler.schedule_event(12, 18, GS_intense_red)
             print("Scheduled events for Video 1 (Deadly Prey)")
             
-        elif vidnum == 1:  # Second video events
-            #self.scheduler.schedule_event(0, 10, GS_horror_flicker)
-            #self.scheduler.schedule_event(5, 12, GS_dark_atmosphere)
-            self.scheduler.schedule_event(0, 20, GS_blood_flow)
-            print("Scheduled events for Video 2 (Midnight Meat Train)")
+
             
 
 # Main execution
@@ -124,7 +120,7 @@ if __name__ == "__main__":
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
-    vidlength = [15, 7]
+    vidlength = [5]#length of time to play video clip
     vidnum = 0
     numvid = len(vidlength)
     
@@ -152,29 +148,17 @@ if __name__ == "__main__":
                 
                 if time.time() - loopstart > vidlength[vidnum]:
                     env_system.VLC.pause()
-                    
+                    vidnum = (vidnum + 1) % numvid
+                    print(f"Switching to video {vidnum + 1}")
+                    video_finished = True
                     # Start listening for fresh key press
-                    env_system.start_listening_for_key()
-                    env_system.scheduler.schedule_event(0, 15000000, GS_blink_fade)
-                    while True:
-                        key = env_system.check_key_press()
-                        env_system.update()
-                        current_time = time.perf_counter()
-                        elapsed = current_time - lasttime
-                        sleep_time = max(0, FRAME_TIME - elapsed)
-                        time.sleep(sleep_time)
-                        lasttime = time.perf_counter()
-                        if key == 'q':
-                            env_system.stop_listening_for_key()
-                            vidnum = (vidnum + 1) % numvid
-                            print(f"Switching to video {vidnum + 1}")
-                            video_finished = True  # Set flag to break outer loop
-                            break
+                    
+
                        
                     
                     # Break out of the inner playback loop
-                    if video_finished:
-                        break
+                if video_finished:
+                    break
 
     except KeyboardInterrupt:
         print("Done!")
