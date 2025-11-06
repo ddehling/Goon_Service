@@ -181,8 +181,8 @@ if __name__ == "__main__":
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
-    vidlength = [15, 7]
-    vidnum = 0
+    vidlength = [15, 15 * 60 + 5]
+    vidnum = 1
     numvid = len(vidlength)
     
     try:
@@ -198,7 +198,7 @@ if __name__ == "__main__":
             env_system.schedule_video_events(vidnum)
 
             video_finished = False  # Flag to break out of inner loop
-            
+
             while True:
                 env_system.update()
                 current_time = time.perf_counter()
