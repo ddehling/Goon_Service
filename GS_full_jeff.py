@@ -8,6 +8,8 @@ from corefunctions.vlc_control import VLCController
 import sys
 from pynput import keyboard
 import threading
+import yaml
+from pathlib import Path
 
 class EnvironmentalSystem:
     def __init__(self, scheduler):
@@ -25,11 +27,49 @@ class EnvironmentalSystem:
         self.smoothing_factor = 0.08
         self.last_update_time = time.time()
         
+        # Load video sequences from YAML
+        self.video_sequences = self.load_video_sequences()
+        
         # Improved keyboard control
         self.key_pressed = False
         self.key_lock = threading.Lock()
         self.listening_for_key = False
         self.setup_global_hotkeys()
+
+    def load_video_sequences(self, yaml_file_path="video_sequences.yaml"):
+        """Load video sequences configuration from YAML file"""
+        yaml_path = Path(yaml_file_path)
+        if not yaml_path.exists():
+            print(f"Warning: {yaml_file_path} not found, using default configuration")
+            return self.get_default_sequences()
+        
+        try:
+            with open(yaml_path, 'r') as f:
+                config = yaml.safe_load(f)
+            print(f"Loaded video sequences from {yaml_file_path}")
+            return config.get('videos', {})
+        except Exception as e:
+            print(f"Error loading {yaml_file_path}: {e}")
+            print("Using default configuration")
+            return self.get_default_sequences()
+    
+    def get_default_sequences(self):
+        """Fallback default sequences if YAML file is not available"""
+        return {
+            0: {
+                "name": "Default Video 1",
+                "events": [
+                    {"start": 0, "end": 15, "lighting": "GS_forest"},
+                    {"start": 10, "end": 15, "lighting": "GS_tingles"}
+                ]
+            },
+            1: {
+                "name": "Default Video 2", 
+                "events": [
+                    {"start": 0, "end": 20, "lighting": "GS_blood_flow"}
+                ]
+            }
+        }
 
     def setup_global_hotkeys(self):
         """Setup global hotkeys that work even when VLC has focus"""
@@ -97,22 +137,42 @@ class EnvironmentalSystem:
         print(f"Switched to video {vidnum + 1} - Fullscreen enforced")
 
     def schedule_video_events(self, vidnum):
-        """Schedule unique events based on the video number"""
+        """Schedule events based on the video number using YAML configuration"""
         # Clear any existing scheduled events
         self.scheduler.cancel_all_events()
         
-        if vidnum == 0:  # First video events
-            self.scheduler.schedule_event(0, 15, GS_forest)
-            self.scheduler.schedule_event(10, 15, GS_tingles)
-            #self.scheduler.schedule_event(3, 8, GS_calm_blue)
-            #self.scheduler.schedule_event(12, 18, GS_intense_red)
-            print("Scheduled events for Video 1 (Deadly Prey)")
+        # Get video configuration from YAML
+        video_config = self.video_sequences.get(vidnum, {})
+        video_name = video_config.get('name', f'Video {vidnum + 1}')
+        events = video_config.get('events', [])
+        
+        print(f"Scheduling events for {video_name}:")
+        
+        # Schedule each event from the configuration
+        for event in events:
+            start_time = event.get('start', 0)
+            end_time = event.get('end', 10)
+            lighting_name = event.get('lighting', 'GS_forest')
             
-        elif vidnum == 1:  # Second video events
-            #self.scheduler.schedule_event(0, 10, GS_horror_flicker)
-            #self.scheduler.schedule_event(5, 12, GS_dark_atmosphere)
-            self.scheduler.schedule_event(0, 20, GS_blood_flow)
-            print("Scheduled events for Video 2 (Midnight Meat Train)")
+            # Convert lighting string to function
+            lighting_func = self.get_lighting_function(lighting_name)
+            if lighting_func:
+                self.scheduler.schedule_event(start_time, end_time, lighting_func)
+                print(f"  - {start_time}s-{end_time}s: {lighting_name}")
+            else:
+                print(f"  - Warning: Lighting function '{lighting_name}' not found, skipping")
+        
+        if not events:
+            print(f"  - No events configured for video {vidnum}")
+    
+    def get_lighting_function(self, lighting_name):
+        """Convert lighting function name string to actual function"""
+        try:
+            # Get the function from the global namespace (imported from GS_states)
+            return globals().get(lighting_name)
+        except Exception as e:
+            print(f"Error getting lighting function '{lighting_name}': {e}")
+            return None
             
 
 # Main execution
@@ -179,4 +239,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Done!")
     finally:
-        env_system.listener.stop() 
+        env_system.listener.stop()

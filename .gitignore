@@ -1,5 +1,6 @@
 env/**
 *.pyc
+__pycache__
 corefunctions/__pycache__/Events.cpython-311.pyc
 corefunctions/__pycache__/ImageToDMX.cpython-311.pyc
 corefunctions/__pycache__/soundinput.cpython-311.pyc

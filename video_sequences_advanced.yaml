@@ -1,0 +1,88 @@
+# Advanced video sequence configuration with all available lighting functions
+# This is an example showing how to use various lighting effects
+
+videos:
+  0:  # First video - Forest/Natural Theme
+    name: "Forest Journey"
+    events:
+      - start: 0
+        end: 10
+        lighting: "GS_forest"
+      - start: 8
+        end: 15
+        lighting: "GS_sunrise"
+      - start: 12
+        end: 20
+        lighting: "GS_curious_playful"
+
+  1:  # Second video - Intense/Emotional Theme
+    name: "Emotional Intensity"
+    events:
+      - start: 0
+        end: 5
+        lighting: "GS_blood_flow"
+      - start: 3
+        end: 8
+        lighting: "GS_rage_lightning"
+      - start: 7
+        end: 12
+        lighting: "GS_tingles"
+      - start: 10
+        end: 15
+        lighting: "GS_blink_fade"
+
+  2:  # Third video - Hypnotic/Relaxing Theme
+    name: "Hypnotic Relaxation"
+    events:
+      - start: 0
+        end: 8
+        lighting: "GS_hypnotic_spiral"
+      - start: 6
+        end: 14
+        lighting: "GS_hot_tub"
+      - start: 12
+        end: 18
+        lighting: "GS_align"
+
+  3:  # Fourth video - Complex overlapping sequences
+    name: "Complex Sequence"
+    events:
+      - start: 0
+        end: 25
+        lighting: "GS_shibari"
+      - start: 5
+        end: 15
+        lighting: "GS_forest"
+      - start: 10
+        end: 20
+        lighting: "GS_tingles"
+      - start: 18
+        end: 25
+        lighting: "GS_sunrise"
+
+# Available lighting functions from GS_states.py:
+# Basic/Testing:
+# - GS_prototype_example    # Simple colored sine wave
+# - GS_blink_fade          # Blinking fade effect
+
+# Atmospheric/Natural:
+# - GS_forest              # Forest-themed lighting
+# - GS_sunrise             # Sunrise effect
+# - GS_curious_playful     # Playful lighting patterns
+
+# Intense/Emotional:
+# - GS_blood_flow          # Blood flow effect
+# - GS_rage_lightning      # Lightning rage effect
+# - GS_tingles             # Tingling sensation effect
+
+# Hypnotic/Relaxing:
+# - GS_hypnotic_spiral     # Hypnotic spiral pattern
+# - GS_hot_tub             # Hot tub relaxation
+# - GS_align               # Alignment effect
+# - GS_shibari             # Shibari-themed lighting
+
+# Tips for creating sequences:
+# 1. Events can overlap in time for layered effects
+# 2. Start times can be the same for simultaneous effects
+# 3. Use shorter durations for quick flashes, longer for ambient effects
+# 4. Consider the emotional arc of your video when choosing lighting functions

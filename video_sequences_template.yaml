@@ -1,0 +1,52 @@
+# Video Lighting Sequence Template
+# Copy this file to video_sequences.yaml and customize for your videos
+
+videos:
+  0:  # First video (index 0)
+    name: "Your Video Name Here"
+    events:
+      - start: 0       # Start time in seconds
+        end: 10        # End time in seconds  
+        lighting: "GS_forest"    # Lighting function name
+      
+      # Add more events as needed:
+      # - start: 5
+      #   end: 15
+      #   lighting: "GS_tingles"
+
+  1:  # Second video (index 1)
+    name: "Your Second Video"
+    events:
+      - start: 0
+        end: 20
+        lighting: "GS_blood_flow"
+
+  # Add more videos by incrementing the number:
+  # 2:
+  #   name: "Third Video"
+  #   events:
+  #     - start: 0
+  #       end: 15
+  #       lighting: "GS_sunrise"
+
+# Quick Reference - Available Lighting Functions:
+# 
+# Atmospheric/Natural:
+# - GS_forest              # Forest ambiance
+# - GS_sunrise             # Warm sunrise colors  
+# - GS_curious_playful     # Playful color patterns
+#
+# Intense/Emotional:
+# - GS_blood_flow          # Pulsing red/warm tones
+# - GS_rage_lightning      # Sharp lightning flashes
+# - GS_tingles             # Subtle shimmer effects
+#
+# Hypnotic/Relaxing:
+# - GS_hypnotic_spiral     # Mesmerizing spiral
+# - GS_hot_tub             # Warm, relaxing blues
+# - GS_align               # Geometric alignment patterns
+# - GS_shibari             # Rope-like patterns
+#
+# Effects/Transitions:
+# - GS_blink_fade          # Gentle blinking/fading
+# - GS_prototype_example   # Simple test pattern

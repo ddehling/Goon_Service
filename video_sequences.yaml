@@ -1,0 +1,50 @@
+# Video sequence lighting configuration
+# Each video has a list of lighting events with start time, end time, and lighting function
+
+videos:
+  0:  # First video (Deadly Prey)
+    name: "Deadly Prey"
+    events:
+      - start: 0
+        end: 15
+        lighting: "GS_forest"
+      - start: 10
+        end: 15
+        lighting: "GS_tingles"
+      # Commented out events can be uncommented when functions are available
+      # - start: 3
+      #   end: 8
+      #   lighting: "GS_calm_blue"
+      # - start: 12
+      #   end: 18
+      #   lighting: "GS_intense_red"
+
+  1:  # Second video (Kitty Sequence)
+    name: "Kitty Sequence"
+    events:
+      - start: 0
+        end: 194
+        lighting: "GS_blink_fade"
+      - start: 194
+        end: 346
+        lighting: "GS_hot_tub"
+      - start: 362
+        end: 538
+        lighting: "GS_hypnotic_spiral"
+      - start: 547
+        end: 842
+        lighting: "GS_forest"
+
+# Available lighting functions (from GS_states.py):
+# - GS_prototype_example
+# - GS_blink_fade
+# - GS_blood_flow
+# - GS_tingles
+# - GS_rage_lightning
+# - GS_curious_playful
+# - GS_forest
+# - GS_sunrise
+# - GS_hypnotic_spiral
+# - GS_hot_tub
+# - GS_align
+# - GS_shibari
