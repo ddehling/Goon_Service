@@ -131,7 +131,7 @@ if __name__ == "__main__":
     
     try:
         env_system.VLC.launch_with_fallback(disable_keyboard=True, autoplay=False)
-        env_system.VLC.set_volume(512)
+        env_system.VLC.set_volume(256)
         
         while True:
             # Switch to video and ensure fullscreen
