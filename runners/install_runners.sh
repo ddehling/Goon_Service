@@ -13,7 +13,7 @@ if [ ! -d ${PARENT} ]; then
 fi
 
 mkdir -p ${RUNNER_SYMLINK_FOLDER}
-for fpath in $(find ${SOURCE_SCRIPT_FOLDER} -name 'run*.sh'); do
+for fpath in $(find ${SOURCE_SCRIPT_FOLDER} -name 'Run*.sh'); do
     link_path="${RUNNER_SYMLINK_FOLDER}/$(basename $fpath)"
     if [ ! -e $link_path ]; then
         ln -s "$fpath" "$link_path"
