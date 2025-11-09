@@ -78,8 +78,8 @@ if __name__ == "__main__":
     # Start with summer bloom weather
    
 
-    env_system.scheduler.schedule_event(0, 60, GS_tingles)  # noqa: F405
-    #env_system.scheduler.schedule_event(10, 20, GS_hot_tub)  # noqa: F405
+    #env_system.scheduler.schedule_event(0, 100, GS_curious_playful)  # noqa: F405
+    env_system.scheduler.schedule_event(0, 1000, GS_hypnotic_spiral)  # noqa: F405
     #env_system.scheduler.schedule_event(0, 60, GS_hypnotic_spiral)
     #env_system.scheduler.schedule_event(0, 60, GS_forest)
     #env_system.scheduler.schedule_event(0, 300, GS_tingles)
