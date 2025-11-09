@@ -4,7 +4,7 @@ set -x
 # Run this script to set up symlinks that can be double clicked in the desktop
 
 PARENT=/home/dieter/Desktop
-RUNNER_SYMLINK_FOLDER=${PARENT}/gooner
+RUNNER_SYMLINK_FOLDER=${PARENT}
 SOURCE_SCRIPT_FOLDER="$(dirname $(realpath $0))"
 
 if [ ! -d ${PARENT} ]; then
