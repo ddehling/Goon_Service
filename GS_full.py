@@ -101,19 +101,25 @@ class EnvironmentalSystem:
         # Clear any existing scheduled events
         self.scheduler.cancel_all_events()
         
-        if vidnum == 0:  # First video events
-            self.scheduler.schedule_event(0, 15, GS_forest)
-            self.scheduler.schedule_event(10, 15, GS_tingles)
-            #self.scheduler.schedule_event(3, 8, GS_calm_blue)
-            #self.scheduler.schedule_event(12, 18, GS_intense_red)
+        if vidnum == 0:  # First (snail) video events
+            self.scheduler.schedule_event(0, 149, GS_blood_flow)
+            self.scheduler.schedule_event(161, 187, GS_hypnotic_spiral)
+            self.scheduler.schedule_event(182, 290, GS_curious_playful)
+            self.scheduler.schedule_event(285, 442, GS_blink_fade)
+            self.scheduler.schedule_event(437, 564, GS_shibari)
+            self.scheduler.schedule_event(559, 775, GS_forest)
+            self.scheduler.schedule_event(770, 785, GS_tingles)
+            self.scheduler.schedule_event(780, 900, GS_curious_playful)
             print("Scheduled events for Video 1 (Snail sequence)")
             
         elif vidnum == 1:  # Second (kitty) video events
-            self.scheduler.schedule_event(0, 149, GS_blood_flow)      # opener
-            self.scheduler.schedule_event(181, 361, GS_hot_tub)
-            self.scheduler.schedule_event(389, 556, GS_curious_playful)
+            self.scheduler.schedule_event(0, 149, GS_blood_flow)
+            self.scheduler.schedule_event(161, 185, GS_hypnotic_spiral)
+            self.scheduler.schedule_event(180, 361, GS_hot_tub)
+            self.scheduler.schedule_event(356, 556, GS_curious_playful)
             self.scheduler.schedule_event(554, 799, GS_forest)
-            self.scheduler.schedule_event(800, 900, GS_tingles)
+            self.scheduler.schedule_event(800, 815, GS_tingles)
+            self.scheduler.schedule_event(810, 900, GS_curious_playful)
             print("Scheduled events for Video 2 (Kitty sequence)")
             
 
@@ -126,8 +132,8 @@ if __name__ == "__main__":
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
-    vidlength = [13 * 60 + 52, 14 * 60 + 17] # first is snail, second is kitty
-    vidnum = 1
+    vidlength = [13.5* 60 + 52, 14.5 * 60 + 17] # first is snail, second is kitty. Have to add 30 seconds
+    vidnum = 0
     numvid = len(vidlength)
     
     try:
