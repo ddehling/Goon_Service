@@ -132,7 +132,7 @@ if __name__ == "__main__":
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
-    vidlength = [13.5* 60 + 52, 14.5 * 60 + 17] # first is snail, second is kitty. Have to add 30 seconds
+    vidlength = [(13 * 60 + 52) - 10, (13 * 60 + 55) - 10] # first is snail, second is kitty. Have to subtract 10 seconds
     vidnum = 0
     numvid = len(vidlength)
     
