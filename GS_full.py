@@ -16,8 +16,8 @@ class EnvironmentalSystem:
         self.transition_start = 0
         self.progress = 0
         self.video_files = [
-            "/home/dieter/Videos/2025.10.02 NatureSmut - Edit.mp4",
-            "/home/dieter/Videos/GoonService_KittySequence.mov",
+            "/home/dieter/Videos/GoonService_SnailSequence_FINAL.mov",
+            "/home/dieter/Videos/GoonService_KittySequence_FINAL.mov",
         ]
         self.VLC = VLCController(self.video_files)
         self.speed = 0.995
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     lasttime = time.perf_counter()
     FRAME_TIME = 1 / 40
     first_time = time.perf_counter()
-    vidlength = [15, 15 * 60 + 5]
+    vidlength = [13 * 60 + 52, 14 * 60 + 17] # first is snail, second is kitty
     vidnum = 1
     numvid = len(vidlength)
     
