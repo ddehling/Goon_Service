@@ -107,9 +107,9 @@ class EnvironmentalSystem:
             #self.scheduler.schedule_event(182, 290, GS_curious_playful)
             #self.scheduler.schedule_event(285, 442, GS_blink_fade)
             #self.scheduler.schedule_event(437, 564, GS_shibari)
-            self.scheduler.schedule_event(0, 40, GS_tingles)
-            self.scheduler.schedule_event(35, 80, GS_curious_playful)
-            #self.scheduler.schedule_event(75, 120, GS_forest)
+            self.scheduler.schedule_event(0, 40, GS_forest)
+            self.scheduler.schedule_event(35, 80, GS_tingles)
+            self.scheduler.schedule_event(75, 120, GS_curious_playful)
             print("Scheduled events for Video 1 (Snail sequence)")
             
         elif vidnum == 1:  # Second (kitty) video events
