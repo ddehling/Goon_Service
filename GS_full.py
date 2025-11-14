@@ -102,15 +102,15 @@ class EnvironmentalSystem:
         self.scheduler.cancel_all_events()
         
         if vidnum == 0:  # First (snail) video events
-            self.scheduler.schedule_event(0, 149, GS_blood_flow)
-            self.scheduler.schedule_event(161, 187, GS_hypnotic_spiral)
-            self.scheduler.schedule_event(182, 290, GS_curious_playful)
-            self.scheduler.schedule_event(285, 442, GS_blink_fade)
-            self.scheduler.schedule_event(437, 564, GS_shibari)
-            self.scheduler.schedule_event(559, 775, GS_forest)
-            self.scheduler.schedule_event(770, 785, GS_tingles)
-            self.scheduler.schedule_event(780, 785, GS_forest)
-            self.scheduler.schedule_event(780, 900, GS_curious_playful)
+            # self.scheduler.schedule_event(0, 149, GS_blood_flow)
+            # self.scheduler.schedule_event(161, 187, GS_hypnotic_spiral)
+            # self.scheduler.schedule_event(182, 290, GS_curious_playful)
+            # self.scheduler.schedule_event(285, 442, GS_blink_fade)
+            # self.scheduler.schedule_event(437, 564, GS_shibari)
+            self.scheduler.schedule_event(0, 40, GS_forest)
+            self.scheduler.schedule_event(35, 55, GS_tingles)
+            self.scheduler.schedule_event(50, 75, GS_forest)
+            self.scheduler.schedule_event(70, 115, GS_curious_playful)
             print("Scheduled events for Video 1 (Snail sequence)")
             
         elif vidnum == 1:  # Second (kitty) video events
