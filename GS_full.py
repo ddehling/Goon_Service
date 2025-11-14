@@ -109,6 +109,7 @@ class EnvironmentalSystem:
             self.scheduler.schedule_event(437, 564, GS_shibari)
             self.scheduler.schedule_event(559, 775, GS_forest)
             self.scheduler.schedule_event(770, 785, GS_tingles)
+            self.scheduler.schedule_event(780, 785, GS_forest)
             self.scheduler.schedule_event(780, 900, GS_curious_playful)
             print("Scheduled events for Video 1 (Snail sequence)")
             
@@ -119,6 +120,7 @@ class EnvironmentalSystem:
             self.scheduler.schedule_event(356, 556, GS_curious_playful)
             self.scheduler.schedule_event(554, 799, GS_forest)
             self.scheduler.schedule_event(800, 815, GS_tingles)
+            self.scheduler.schedule_event(810, 815, GS_forest)
             self.scheduler.schedule_event(810, 900, GS_curious_playful)
             print("Scheduled events for Video 2 (Kitty sequence)")
             
