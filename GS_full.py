@@ -106,14 +106,15 @@ class EnvironmentalSystem:
             self.scheduler.schedule_event(10, 15, GS_tingles)
             #self.scheduler.schedule_event(3, 8, GS_calm_blue)
             #self.scheduler.schedule_event(12, 18, GS_intense_red)
-            print("Scheduled events for Video 1 (Deadly Prey)")
+            print("Scheduled events for Video 1 (Snail sequence)")
             
         elif vidnum == 1:  # Second (kitty) video events
-            self.scheduler.schedule_event(0, 194, GS_blink_fade)      # opener
-            self.scheduler.schedule_event(194, 346, GS_hot_tub)
-            self.scheduler.schedule_event(362, 538, GS_hypnotic_spiral)
-            self.scheduler.schedule_event(547, 842, GS_forest)
-            print("Scheduled events for Video 2 (Midnight Meat Train)")
+            self.scheduler.schedule_event(0, 149, GS_blood_flow)      # opener
+            self.scheduler.schedule_event(181, 361, GS_hot_tub)
+            self.scheduler.schedule_event(389, 556, GS_curious_playful)
+            self.scheduler.schedule_event(554, 799, GS_forest)
+            self.scheduler.schedule_event(800, 900, GS_tingles)
+            print("Scheduled events for Video 2 (Kitty sequence)")
             
 
 # Main execution
