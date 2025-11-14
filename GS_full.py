@@ -16,8 +16,8 @@ class EnvironmentalSystem:
         self.transition_start = 0
         self.progress = 0
         self.video_files = [
-            "/home/dieter/Videos/GoonService_SnailSequence_FINAL.mov",
-            "/home/dieter/Videos/GoonService_KittySequence_FINAL.mov",
+            '/home/dieter/Videos/GoonService_SnailSequence_FINAL_111325_903PM.mov',
+            '/home/dieter/Videos/GoonService_KittySequence_FINAL_111325_844P.mov',
         ]
         self.VLC = VLCController(self.video_files)
         self.speed = 0.995
